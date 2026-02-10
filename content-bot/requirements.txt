@@ -1,0 +1,15 @@
+# Content Bot Dependencies
+
+# Video downloading
+yt-dlp
+
+# Video/Audio processing
+ffmpeg-python
+
+# AI Services (Chutes.ai compatible)
+requests
+httpx
+
+# Utilities
+python-dotenv
+pathlib
