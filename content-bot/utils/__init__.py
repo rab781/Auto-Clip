@@ -3,7 +3,10 @@
 Auto-Clip Utils Package
 """
 from .downloader import download_audio_only, download_video_segment, get_video_info
-from .ai_logic import transcribe_audio, analyze_content_for_clips, generate_clip_caption, translate_segments
+from .ai_logic import (
+    transcribe_audio, analyze_content_for_clips, generate_clip_caption,
+    translate_segments, validate_dependencies, api_retry
+)
 from .processor import (
     convert_to_vertical,
     burn_captions,
@@ -24,6 +27,8 @@ __all__ = [
     "analyze_content_for_clips",
     "generate_clip_caption",
     "translate_segments",
+    "validate_dependencies",
+    "api_retry",
     # Processor
     "convert_to_vertical",
     "burn_captions",

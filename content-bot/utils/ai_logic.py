@@ -8,10 +8,62 @@ Modul untuk AI processing:
 import requests
 import json
 import re
+import subprocess
 import sys
+import time
+import functools
 sys.path.append(str(__file__).rsplit('\\', 2)[0])
 
 from config import CHUTES_API_KEY, CHUTES_BASE_URL, WHISPER_MODEL, LLM_MODEL, VIDEO_SETTINGS
+
+
+def validate_dependencies():
+    """Validate that FFmpeg and ffprobe are available on the system."""
+    for tool in ["ffmpeg", "ffprobe"]:
+        try:
+            result = subprocess.run(
+                [tool, "-version"], capture_output=True, text=True, timeout=10
+            )
+            if result.returncode != 0:
+                raise FileNotFoundError
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            print(f"❌ FATAL: '{tool}' tidak ditemukan di PATH!")
+            print(f"   Install FFmpeg: https://ffmpeg.org/download.html")
+            print(f"   Pastikan '{tool}' ada di system PATH.")
+            sys.exit(1)
+    print("✅ FFmpeg & ffprobe ready")
+
+
+def api_retry(max_retries: int = 3, base_delay: int = 5):
+    """Decorator untuk retry API calls dengan exponential backoff."""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            last_error = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except requests.exceptions.Timeout as e:
+                    last_error = e
+                    wait = base_delay * (2 ** attempt)
+                    print(f"   ⏰ Timeout (attempt {attempt+1}/{max_retries}), retry in {wait}s...")
+                    time.sleep(wait)
+                except requests.exceptions.ConnectionError as e:
+                    last_error = e
+                    wait = base_delay * (2 ** attempt)
+                    print(f"   🔌 Connection error (attempt {attempt+1}/{max_retries}), retry in {wait}s...")
+                    time.sleep(wait)
+                except Exception as e:
+                    last_error = e
+                    if attempt < max_retries - 1:
+                        wait = base_delay * (attempt + 1)
+                        print(f"   ⚠️ Error: {str(e)[:80]} (attempt {attempt+1}/{max_retries}), retry in {wait}s...")
+                        time.sleep(wait)
+                    else:
+                        raise
+            raise last_error
+        return wrapper
+    return decorator
 
 
 def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int = 300) -> dict:

@@ -6,10 +6,13 @@ Bot otomatis untuk mengubah video YouTube panjang menjadi klip pendek viral
 Usage:
     python main.py <youtube_url>
     python main.py --url <youtube_url>
+    python main.py --url <youtube_url> --dry-run
 """
 import sys
+import shutil
 import argparse
 from pathlib import Path
+from tqdm import tqdm
 
 from config import DOWNLOADS_DIR, TEMP_DIR, OUTPUT_DIR
 from utils import (
@@ -20,79 +23,130 @@ from utils import (
     analyze_content_for_clips,
     generate_clip_caption,
     translate_segments,
+    validate_dependencies,
     create_final_clip,
 )
 
 
-def process_video(url: str) -> list:
+def cleanup_temp(temp_dir: str = None):
+    """Remove all temporary files after processing."""
+    temp_path = Path(temp_dir) if temp_dir else TEMP_DIR
+    if temp_path.exists():
+        file_count = sum(1 for f in temp_path.iterdir() if f.is_file())
+        if file_count > 0:
+            for f in temp_path.iterdir():
+                if f.is_file():
+                    f.unlink()
+            print(f"🧹 Cleaned up {file_count} temp files")
+
+
+def process_video(url: str, dry_run: bool = False) -> list:
     """
     Main pipeline: Process YouTube video into viral clips
     
     Args:
         url: YouTube video URL
+        dry_run: If True, analyze only (no video download/processing)
         
     Returns:
         List of output file paths
     """
     print("\n" + "="*60)
-    print("🚀 AUTO-CLIP BOT - Starting Pipeline")
+    print("🚀 AUTO-CLIP BOT V2 — Pipeline")
+    if dry_run:
+        print("   🧪 DRY RUN MODE — analyze only, no processing")
     print("="*60 + "\n")
     
+    # Step 0: Validate dependencies
+    validate_dependencies()
+    
+    # === PIPELINE STEPS (with progress bar) ===
+    steps = [
+        "📋 Get video info",
+        "📥 Download audio",
+        "🎤 Transcribe (Whisper)",
+        "🧠 AI clip analysis",
+        "🎬 Process clips",
+    ]
+    
+    progress = tqdm(steps, desc="Pipeline", bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]")
+    
     # Step 1: Get video info
-    print("📋 Step 1: Getting video info...")
+    progress.set_description("📋 Getting video info")
     video_info = get_video_info(url)
-    print(f"   Title: {video_info['title']}")
+    print(f"\n   Title: {video_info['title']}")
     print(f"   Duration: {video_info['duration']}s ({video_info['duration']//60}m {video_info['duration']%60}s)")
+    progress.update(1)
     
     # Step 2: Download audio only (fast & lightweight)
-    print("\n📥 Step 2: Downloading audio only...")
+    progress.set_description("📥 Downloading audio")
     audio_path = download_audio_only(url, str(DOWNLOADS_DIR))
+    progress.update(1)
     
     # Step 3: Transcribe audio
-    print("\n🎤 Step 3: Transcribing audio with Whisper...")
+    progress.set_description("🎤 Transcribing audio")
     transcription = transcribe_audio(audio_path)
+    seg_count = len(transcription.get("segments", []))
+    text_len = len(transcription.get("text", ""))
+    print(f"\n   📝 Transcribed: {seg_count} segments, {text_len} chars")
+    progress.update(1)
     
     # Step 4: Analyze content and find viral clips
-    print("\n🧠 Step 4: Analyzing content for viral clips...")
+    progress.set_description("🧠 Analyzing content")
     clips = analyze_content_for_clips(transcription, video_info)
+    progress.update(1)
     
     if not clips:
+        progress.close()
         print("❌ No suitable clips found!")
         return []
     
-    print(f"   Found {len(clips)} potential clips:")
+    # Print clip summary
+    print(f"\n   Found {len(clips)} potential clips:")
     for i, clip in enumerate(clips, 1):
         duration = clip['end'] - clip['start']
-        print(f"   {i}. [{clip['start']:.0f}s - {clip['end']:.0f}s] ({duration:.0f}s) {clip['caption_title']}")
+        print(f"   {i}. [{clip['start']:.0f}s - {clip['end']:.0f}s] ({duration:.0f}s) {clip.get('caption_title', '')}")
         print(f"      Type: {clip.get('narrative_type', '-')} | Mood: {clip.get('mood', 'unknown')}")
         if clip.get('hook'):
             print(f"      🪝 Hook: \"{clip['hook'][:80]}\"")
-        print(f"      📖 {clip['reason'][:80]}...")
+        print(f"      📖 {clip.get('reason', '')[:80]}...")
+    
+    # Dry run stops here
+    if dry_run:
+        progress.close()
+        print("\n" + "="*60)
+        print("🧪 DRY RUN COMPLETE — Analysis done, no clips processed")
+        print("="*60)
+        print("\nRun without --dry-run to generate clips.")
+        return []
     
     # Step 5: Process each clip
-    print("\n🎬 Step 5: Processing clips...")
+    progress.set_description("🎬 Processing clips")
     outputs = []
     
-    for i, clip in enumerate(clips, 1):
-        print(f"\n{'='*50}")
-        print(f"Processing Clip {i}/{len(clips)}")
-        print(f"{'='*50}")
+    clip_progress = tqdm(
+        enumerate(clips, 1), 
+        total=len(clips), 
+        desc="Clips", 
+        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
+    )
+    
+    for i, clip in clip_progress:
+        clip_progress.set_description(f"Clip {i}/{len(clips)}")
         
         # Download video segment
         segment_path = TEMP_DIR / f"segment_{i}.mp4"
         try:
             download_video_segment(url, clip["start"], clip["end"], str(segment_path))
         except Exception as e:
-            print(f"⚠️ Failed to download segment: {e}")
+            print(f"\n⚠️ Failed to download segment {i}: {e}")
             continue
         
         # Extract relevant transcript segments for this clip
         clip_segments = []
         if "segments" in transcription:
             for seg in transcription["segments"]:
-                # Check if segment overlaps with clip timeframe
                 if seg["start"] >= clip["start"] and seg["end"] <= clip["end"]:
-                    # Adjust timestamps relative to clip start
                     clip_segments.append({
                         "start": seg["start"] - clip["start"],
                         "end": seg["end"] - clip["start"],
@@ -105,16 +159,15 @@ def process_video(url: str) -> list:
             enhanced_caption = generate_clip_caption(clip, transcript_text)
             clip["enhanced_caption"] = enhanced_caption
         except Exception as e:
-            print(f"⚠️ Caption generation failed: {e}")
+            print(f"\n⚠️ Caption generation failed: {e}")
             clip["enhanced_caption"] = clip.get("caption_title", "")
         
         # Translate segments to Indonesian
         if clip_segments:
-            print(f"\n🌐 Translating subtitle segments to Indonesian...")
             try:
                 clip_segments = translate_segments(clip_segments)
             except Exception as e:
-                print(f"⚠️ Translation failed, using original text: {e}")
+                print(f"\n⚠️ Translation failed, using original text: {e}")
         
         # Create final clip
         try:
@@ -127,8 +180,15 @@ def process_video(url: str) -> list:
             )
             outputs.append(result)
         except Exception as e:
-            print(f"❌ Failed to process clip {i}: {e}")
+            print(f"\n❌ Failed to process clip {i}: {e}")
             continue
+    
+    clip_progress.close()
+    progress.update(1)
+    progress.close()
+    
+    # Cleanup temp files
+    cleanup_temp()
     
     # Summary
     print("\n" + "="*60)
@@ -149,12 +209,13 @@ def process_video(url: str) -> list:
 def main():
     """Main entry point with CLI argument parsing"""
     parser = argparse.ArgumentParser(
-        description="Auto-Clip Bot - Transform long videos into viral clips",
+        description="Auto-Clip Bot V2 — Transform long videos into viral clips",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
     python main.py https://www.youtube.com/watch?v=VIDEO_ID
     python main.py --url https://youtu.be/VIDEO_ID
+    python main.py --url https://youtu.be/VIDEO_ID --dry-run
         """
     )
     
@@ -167,6 +228,11 @@ Examples:
         "--url", "-u",
         dest="url_flag",
         help="YouTube video URL (alternative)"
+    )
+    parser.add_argument(
+        "--dry-run", "-d",
+        action="store_true",
+        help="Analyze only, don't process clips"
     )
     
     args = parser.parse_args()
@@ -184,12 +250,12 @@ Examples:
         print("⚠️ Warning: URL doesn't look like a YouTube link")
     
     try:
-        outputs = process_video(url)
+        outputs = process_video(url, dry_run=args.dry_run)
         
         if outputs:
             print("\n🎉 Success! Your clips are ready for upload.")
             print("📂 Check the output folder:", OUTPUT_DIR)
-        else:
+        elif not args.dry_run:
             print("\n😕 No clips were created. Try a different video.")
             sys.exit(1)
             
@@ -198,6 +264,8 @@ Examples:
         sys.exit(0)
     except Exception as e:
         print(f"\n❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 

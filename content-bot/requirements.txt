@@ -12,4 +12,6 @@ httpx
 
 # Utilities
 python-dotenv
-pathlib
+
+# Phase 1: UI & Progress
+tqdm
