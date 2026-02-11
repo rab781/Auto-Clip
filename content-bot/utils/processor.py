@@ -2,7 +2,7 @@
 """
 Modul untuk memproses video:
 - Cutting/trimming video
-- Convert ke format vertical 9:16
+- Convert ke format vertical 9:16 (Smart Crop / Center Crop)
 - Burn captions (hardsub)
 - Add background music
 - Generate thumbnail
@@ -18,12 +18,22 @@ from config import (
     VIDEO_SETTINGS, AUDIO_SETTINGS, CAPTION_SETTINGS,
     TEMP_DIR, OUTPUT_DIR, BGM_DIR
 )
+from utils.animated_captions import generate_animated_ass
+
+# Try to import FaceTracker for smart crop
+try:
+    from utils.face_tracker import FaceTracker
+    FACE_TRACKER_AVAILABLE = True
+except ImportError:
+    print("! FaceTracker modules (MediaPipe/OpenCV) not found. Using Center Crop.")
+    FACE_TRACKER_AVAILABLE = False
 
 
 def convert_to_vertical(video_path: str, output_path: str) -> str:
     """
     Convert video ke aspect ratio 9:16 (vertical/portrait)
-    Center crop dari video horizontal
+    Menggunakan Smart Crop (Face Detection) jika memungkinkan,
+    fallback ke Center Crop.
     
     Args:
         video_path: Path ke video input
@@ -38,11 +48,43 @@ def convert_to_vertical(video_path: str, output_path: str) -> str:
     width = VIDEO_SETTINGS["output_width"]
     height = VIDEO_SETTINGS["output_height"]
     
-    # FFmpeg filter untuk center crop ke 9:16
-    # Scale dulu ke height yang diinginkan, lalu crop width
+    # Default: Center Crop
+    # Scale height to target, then crop width from center
+    crop_x = "(in_w-out_w)/2"  # Center
+    
+    # Try Smart Crop
+    if FACE_TRACKER_AVAILABLE:
+        print(f"[INFO] Analyzing video for Smart Crop: {Path(video_path).name}")
+        try:
+            tracker = FaceTracker()
+            avg_x = tracker.get_average_face_position(str(video_path))
+            tracker.close()
+            
+            if avg_x is not None:
+                # Calculate pixel position for crop (centered on face)
+                # Note: 'scale=-1:{height}' means width is scaled proportionally.
+                # We need to know the scaled width to calculate crop x.
+                # But FFmpeg filter evaluation is tricky.
+                # Simplified approach:
+                # Assume horizontal video (16:9), target (9:16).
+                # Face X (0.0-1.0) is relative to the SCALED width.
+                
+                # FFmpeg command: scale=-1:1920,crop=1080:1920:x:0
+                # We need to determine 'x' relative to the scaled width.
+                # Expression: (in_w*AVG_X) - (out_w/2)
+                # Clamped to [0, in_w-out_w]
+                
+                print(f"   [FACE] Face detected at X={avg_x:.2f}. Applying Smart Crop.")
+                crop_x = f"(in_w*{avg_x})-(out_w/2)"
+            else:
+                print("   [FACE] No face detected. Defaulting to Center Crop.")
+        except Exception as e:
+            print(f"! Smart Crop failed ({e}). Defaulting to Center Crop.")
+
+    # FFmpeg filter: Scale -> Crop
     filter_complex = (
-        f"scale=-1:{height},"  # Scale height, maintain aspect ratio
-        f"crop={width}:{height}"  # Center crop
+        f"scale=-1:{height},"
+        f"crop={width}:{height}:{crop_x}:0"
     )
     
     cmd = [
@@ -50,16 +92,20 @@ def convert_to_vertical(video_path: str, output_path: str) -> str:
         "-i", str(video_path),
         "-vf", filter_complex,
         "-c:a", "copy",
+        "-c:v", "libx264",
+        "-crf", "18",       # High quality (visually lossless)
+        "-preset", "slow",   # Better compression efficiency
+        "-pix_fmt", "yuv420p",
         str(output_path)
     ]
     
-    print(f"📐 Converting to vertical (9:16): {output_path.name}")
+    print(f"[CROP] Converting to vertical (9:16)...")
     result = subprocess.run(cmd, capture_output=True, text=True)
     
     if result.returncode != 0:
         raise Exception(f"FFmpeg error: {result.stderr}")
     
-    print(f"✅ Vertical video created: {output_path}")
+    print(f"[DONE] Vertical video created: {output_path}")
     return str(output_path)
 
 
@@ -126,7 +172,7 @@ def generate_srt_from_segments(segments: list, output_path: str, words_per_line:
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(srt_content)
     
-    print(f"📝 SRT file created ({entry_index - 1} entries, {words_per_line} words/line): {output_path}")
+    print(f"[SUB] SRT file created ({entry_index - 1} entries, {words_per_line} words/line): {output_path}")
     return str(output_path)
 
 
@@ -148,41 +194,52 @@ def burn_captions(video_path: str, srt_path: str, output_path: str) -> str:
     # Escape path untuk FFmpeg (Windows needs special handling)
     srt_escaped = str(srt_path).replace("\\", "/").replace(":", "\\:")
     
-    # Subtitle filter dengan styling word-level
-    font = CAPTION_SETTINGS["font"]
-    font_size = CAPTION_SETTINGS["font_size"]
-    outline_width = CAPTION_SETTINGS["outline_width"]
-    margin_bottom = CAPTION_SETTINGS.get("margin_bottom", 50)
-    shadow_depth = CAPTION_SETTINGS.get("shadow_depth", 1)
+    # Check if ASS (Animated) or SRT (Simple)
+    is_ass = str(srt_path).lower().endswith(".ass")
     
-    # Position: bottom bawah, word-level subtitle style
-    subtitle_filter = (
-        f"subtitles='{srt_escaped}':"
-        f"force_style='FontName={font},"
-        f"FontSize={font_size},"
-        f"PrimaryColour=&H00FFFFFF,"  # White
-        f"OutlineColour=&H00000000,"  # Black outline
-        f"BackColour=&H80000000,"  # Semi-transparent black background
-        f"Outline={outline_width},"
-        f"Shadow={shadow_depth},"
-        f"Alignment=2,"  # Center bottom
-        f"MarginV={margin_bottom}'"
-    )
+    if is_ass:
+        # ASS file already has styles embedded
+        subtitle_filter = f"subtitles='{srt_escaped}'"
+    else:
+        # SRT requires force_style for customization
+        font = CAPTION_SETTINGS["font"]
+        font_size = CAPTION_SETTINGS["font_size"]
+        outline_width = CAPTION_SETTINGS["outline_width"]
+        margin_bottom = CAPTION_SETTINGS.get("margin_bottom", 50)
+        shadow_depth = CAPTION_SETTINGS.get("shadow_depth", 1)
+        
+        # Position: bottom bawah, word-level subtitle style
+        subtitle_filter = (
+            f"subtitles='{srt_escaped}':"
+            f"force_style='FontName={font},"
+            f"FontSize={font_size},"
+            f"PrimaryColour=&H00FFFFFF,"  # White
+            f"OutlineColour=&H00000000,"  # Black outline
+            f"BackColour=&H80000000,"  # Semi-transparent black background
+            f"Outline={outline_width},"
+            f"Shadow={shadow_depth},"
+            f"Alignment=2,"  # Center bottom
+            f"MarginV={margin_bottom}'"
+        )
     
     cmd = [
         "ffmpeg", "-y",
         "-i", str(video_path),
         "-vf", subtitle_filter,
         "-c:a", "copy",
+        "-c:v", "libx264",
+        "-crf", "18",       # High quality (visually lossless)
+        "-preset", "slow",   # Better compression efficiency
+        "-pix_fmt", "yuv420p",
         str(output_path)
     ]
     
-    print(f"💬 Burning captions to video...")
+    print(f"[SUB] Burning captions to video...")
     result = subprocess.run(cmd, capture_output=True, text=True)
     
     if result.returncode != 0:
         # Fallback: tanpa subtitle styling yang kompleks
-        print("⚠️ Trying simpler subtitle format...")
+        print("! Trying simpler subtitle format...")
         cmd = [
             "ffmpeg", "-y",
             "-i", str(video_path),
@@ -195,7 +252,7 @@ def burn_captions(video_path: str, srt_path: str, output_path: str) -> str:
         if result.returncode != 0:
             raise Exception(f"FFmpeg error: {result.stderr}")
     
-    print(f"✅ Captions burned: {output_path}")
+    print(f"[DONE] Captions burned: {output_path}")
     return str(output_path)
 
 
@@ -243,13 +300,13 @@ def add_background_music(video_path: str, bgm_path: str, output_path: str,
         str(output_path)
     ]
     
-    print(f"🎵 Adding background music (volume: {bgm_volume*100:.0f}%)...")
+    print(f"[MUSIC] Adding background music (volume: {bgm_volume*100:.0f}%)...")
     result = subprocess.run(cmd, capture_output=True, text=True)
     
     if result.returncode != 0:
         raise Exception(f"FFmpeg error: {result.stderr}")
     
-    print(f"✅ BGM added: {output_path}")
+    print(f"[DONE] BGM added: {output_path}")
     return str(output_path)
 
 
@@ -281,13 +338,13 @@ def generate_thumbnail(video_path: str, output_path: str, timestamp: float = Non
         str(output_path)
     ]
     
-    print(f"🖼️ Generating thumbnail at {timestamp:.1f}s...")
+    print(f"[THUMB] Generating thumbnail at {timestamp:.1f}s...")
     result = subprocess.run(cmd, capture_output=True, text=True)
     
     if result.returncode != 0:
         raise Exception(f"FFmpeg error: {result.stderr}")
     
-    print(f"✅ Thumbnail created: {output_path}")
+    print(f"[DONE] Thumbnail created: {output_path}")
     return str(output_path)
 
 
@@ -318,7 +375,7 @@ def select_bgm_by_mood(mood: str) -> str:
     all_bgm = list(bgm_dir.glob("*.mp3")) + list(bgm_dir.glob("*.wav"))
     
     if not all_bgm:
-        print(f"⚠️ No BGM files found in {bgm_dir}")
+        print(f"! No BGM files found in {bgm_dir}")
         return None
     
     # Match by filename
@@ -326,12 +383,12 @@ def select_bgm_by_mood(mood: str) -> str:
         matching = [f for f in all_bgm if pattern in f.stem.lower()]
         if matching:
             selected = random.choice(matching)
-            print(f"🎵 Selected BGM for '{mood}' mood: {selected.name}")
+            print(f"[MUSIC] Selected BGM for '{mood}' mood: {selected.name}")
             return str(selected)
     
     # Fallback: random BGM
     selected = random.choice(all_bgm)
-    print(f"🎵 Random BGM selected: {selected.name}")
+    print(f"[MUSIC] Random BGM selected: {selected.name}")
     return str(selected)
 
 
@@ -373,23 +430,31 @@ def create_final_clip(
     base_name = f"{clip_number:02d}_{safe_title}"
     
     print(f"\n{'='*50}")
-    print(f"🎬 Processing Clip #{clip_number}: {clip_info.get('caption_title', 'Unknown')}")
+    print(f"[ACTION] Processing Clip #{clip_number}: {clip_info.get('caption_title', 'Unknown')}")
     print(f"{'='*50}")
     
     # Step 1: Convert to vertical
     vertical_path = temp_dir / f"{base_name}_vertical.mp4"
     vertical_video = convert_to_vertical(video_segment_path, str(vertical_path))
     
-    # Step 2: Generate SRT (word-level)
-    srt_path = temp_dir / f"{base_name}.srt"
-    words_per_line = CAPTION_SETTINGS.get("words_per_line", 3)
-    if segments:
-        generate_srt_from_segments(segments, str(srt_path), words_per_line=words_per_line)
+    # Step 2: Generate Captions (SRT or ASS)
+    caption_style = CAPTION_SETTINGS.get("style", "simple")
+    subtitle_path = None
     
-    # Step 3: Burn captions (if SRT exists)
-    if segments and srt_path.exists():
+    if segments:
+        if caption_style == "animated":
+            subtitle_path = temp_dir / f"{base_name}.ass"
+            generate_animated_ass(segments, str(subtitle_path), CAPTION_SETTINGS)
+            print(f"[SUB] Generated Animated Captions (ASS): {subtitle_path.name}")
+        else:
+            subtitle_path = temp_dir / f"{base_name}.srt"
+            words_per_line = CAPTION_SETTINGS.get("words_per_line", 3)
+            generate_srt_from_segments(segments, str(subtitle_path), words_per_line=words_per_line)
+    
+    # Step 3: Burn captions (if subtitle exists)
+    if subtitle_path and subtitle_path.exists():
         captioned_path = temp_dir / f"{base_name}_captioned.mp4"
-        captioned_video = burn_captions(vertical_video, str(srt_path), str(captioned_path))
+        captioned_video = burn_captions(vertical_video, str(subtitle_path), str(captioned_path))
     else:
         captioned_video = vertical_video
     
@@ -405,7 +470,7 @@ def create_final_clip(
         import shutil
         shutil.copy(captioned_video, final_video_path)
         final_video = str(final_video_path)
-        print("⚠️ No BGM added (no matching file found)")
+        print("! No BGM added (no matching file found)")
     
     # Step 5: Generate thumbnail
     thumbnail_path = output_dir / f"{base_name}_thumbnail.jpg"
@@ -435,10 +500,10 @@ def create_final_clip(
     with open(caption_path, "w", encoding="utf-8") as f:
         f.write(caption_text)
     
-    print(f"\n✅ Clip #{clip_number} complete!")
-    print(f"   📹 Video: {final_video_path.name}")
-    print(f"   🖼️ Thumbnail: {thumbnail_path.name}")
-    print(f"   📝 Caption: {caption_path.name}")
+    print(f"\n[DONE] Clip #{clip_number} complete!")
+    print(f"   [VIDEO] Video: {final_video_path.name}")
+    print(f"   [THUMB] Thumbnail: {thumbnail_path.name}")
+    print(f"   [TEXT] Caption: {caption_path.name}")
     
     return {
         "video": str(final_video_path),

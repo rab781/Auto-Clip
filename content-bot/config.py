@@ -34,7 +34,7 @@ VIDEO_SETTINGS = {
     "output_width": 1080,
     "output_height": 1920,
     "fps": 30,
-    "min_clip_duration": 15,  # minimum 15 detik
+    "min_clip_duration": 15,  # Minimum duration for a clip
     "max_clip_duration": 300,  # maximum 5 menit (300 detik) untuk narrative arc lengkap
 }
 
@@ -47,12 +47,14 @@ AUDIO_SETTINGS = {
 # === Caption Settings (Word-level Subtitle Style) ===
 CAPTION_SETTINGS = {
     "font": "Segoe UI Semibold",  # Modern font (available on Windows)
-    "font_size": 22,  # Ukuran sedang untuk word-level subtitle
+    "font_size": 72,  # Large size for 1920p ASS resolution (CapCut-style)
     "font_color": "white",
     "outline_color": "black",
-    "outline_width": 2,
-    "shadow_depth": 1,  # Shadow untuk readability
+    "outline_width": 3,  # Thicker outline for readability
+    "shadow_depth": 2,  # Deeper shadow for contrast
     "position": "bottom",
-    "margin_bottom": 50,
+    "margin_bottom": 120,  # Higher margin from bottom edge
     "words_per_line": 2,  # 2 kata per subtitle entry (~1 detik interval)
+    "style": "animated",  # "simple" (SRT) or "animated" (ASS with word highlight)
+    "highlight_color": "&H00FFFF",  # Yellow in ASS hex format (BGR)
 }

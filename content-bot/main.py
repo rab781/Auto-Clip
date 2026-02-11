@@ -37,7 +37,7 @@ def cleanup_temp(temp_dir: str = None):
             for f in temp_path.iterdir():
                 if f.is_file():
                     f.unlink()
-            print(f"🧹 Cleaned up {file_count} temp files")
+            print(f"[CLEANUP] Cleaned up {file_count} temp files")
 
 
 def process_video(url: str, dry_run: bool = False) -> list:
@@ -52,9 +52,9 @@ def process_video(url: str, dry_run: bool = False) -> list:
         List of output file paths
     """
     print("\n" + "="*60)
-    print("🚀 AUTO-CLIP BOT V2 — Pipeline")
+    print("[AUTO-CLIP BOT V2] Pipeline Starting")
     if dry_run:
-        print("   🧪 DRY RUN MODE — analyze only, no processing")
+        print("   [DRY RUN] Analyze only, no processing")
     print("="*60 + "\n")
     
     # Step 0: Validate dependencies
@@ -62,43 +62,43 @@ def process_video(url: str, dry_run: bool = False) -> list:
     
     # === PIPELINE STEPS (with progress bar) ===
     steps = [
-        "📋 Get video info",
-        "📥 Download audio",
-        "🎤 Transcribe (Whisper)",
-        "🧠 AI clip analysis",
-        "🎬 Process clips",
+        "[INFO] Get video info",
+        "[DL] Download audio",
+        "[AI] Transcribe (Whisper)",
+        "[AI] AI clip analysis",
+        "[CLIP] Process clips",
     ]
     
     progress = tqdm(steps, desc="Pipeline", bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]")
     
     # Step 1: Get video info
-    progress.set_description("📋 Getting video info")
+    progress.set_description("[INFO] Getting video info")
     video_info = get_video_info(url)
     print(f"\n   Title: {video_info['title']}")
     print(f"   Duration: {video_info['duration']}s ({video_info['duration']//60}m {video_info['duration']%60}s)")
     progress.update(1)
     
     # Step 2: Download audio only (fast & lightweight)
-    progress.set_description("📥 Downloading audio")
+    progress.set_description("[DL] Downloading audio")
     audio_path = download_audio_only(url, str(DOWNLOADS_DIR))
     progress.update(1)
     
     # Step 3: Transcribe audio
-    progress.set_description("🎤 Transcribing audio")
+    progress.set_description("[AI] Transcribing audio")
     transcription = transcribe_audio(audio_path)
     seg_count = len(transcription.get("segments", []))
     text_len = len(transcription.get("text", ""))
-    print(f"\n   📝 Transcribed: {seg_count} segments, {text_len} chars")
+    print(f"\n   [TEXT] Transcribed: {seg_count} segments, {text_len} chars")
     progress.update(1)
     
     # Step 4: Analyze content and find viral clips
-    progress.set_description("🧠 Analyzing content")
+    progress.set_description("[AI] Analyzing content")
     clips = analyze_content_for_clips(transcription, video_info)
     progress.update(1)
     
     if not clips:
         progress.close()
-        print("❌ No suitable clips found!")
+        print("! No suitable clips found!")
         return []
     
     # Print clip summary
@@ -108,20 +108,20 @@ def process_video(url: str, dry_run: bool = False) -> list:
         print(f"   {i}. [{clip['start']:.0f}s - {clip['end']:.0f}s] ({duration:.0f}s) {clip.get('caption_title', '')}")
         print(f"      Type: {clip.get('narrative_type', '-')} | Mood: {clip.get('mood', 'unknown')}")
         if clip.get('hook'):
-            print(f"      🪝 Hook: \"{clip['hook'][:80]}\"")
-        print(f"      📖 {clip.get('reason', '')[:80]}...")
+            print(f"      [HOOK] Hook: \"{clip['hook'][:80]}\"")
+        print(f"      [STORY] {clip.get('reason', '')[:80]}...")
     
     # Dry run stops here
     if dry_run:
         progress.close()
         print("\n" + "="*60)
-        print("🧪 DRY RUN COMPLETE — Analysis done, no clips processed")
+        print("[DRY RUN] DRY RUN COMPLETE — Analysis done, no clips processed")
         print("="*60)
         print("\nRun without --dry-run to generate clips.")
         return []
     
     # Step 5: Process each clip
-    progress.set_description("🎬 Processing clips")
+    progress.set_description("[CLIP] Processing clips")
     outputs = []
     
     clip_progress = tqdm(
@@ -139,7 +139,7 @@ def process_video(url: str, dry_run: bool = False) -> list:
         try:
             download_video_segment(url, clip["start"], clip["end"], str(segment_path))
         except Exception as e:
-            print(f"\n⚠️ Failed to download segment {i}: {e}")
+            print(f"\n! Failed to download segment {i}: {e}")
             continue
         
         # Extract relevant transcript segments for this clip
@@ -159,7 +159,7 @@ def process_video(url: str, dry_run: bool = False) -> list:
             enhanced_caption = generate_clip_caption(clip, transcript_text)
             clip["enhanced_caption"] = enhanced_caption
         except Exception as e:
-            print(f"\n⚠️ Caption generation failed: {e}")
+            print(f"\n! Caption generation failed: {e}")
             clip["enhanced_caption"] = clip.get("caption_title", "")
         
         # Translate segments to Indonesian
@@ -167,7 +167,7 @@ def process_video(url: str, dry_run: bool = False) -> list:
             try:
                 clip_segments = translate_segments(clip_segments)
             except Exception as e:
-                print(f"\n⚠️ Translation failed, using original text: {e}")
+                print(f"\n! Translation failed, using original text: {e}")
         
         # Create final clip
         try:
@@ -180,7 +180,7 @@ def process_video(url: str, dry_run: bool = False) -> list:
             )
             outputs.append(result)
         except Exception as e:
-            print(f"\n❌ Failed to process clip {i}: {e}")
+            print(f"\n! Failed to process clip {i}: {e}")
             continue
     
     clip_progress.close()
@@ -192,16 +192,16 @@ def process_video(url: str, dry_run: bool = False) -> list:
     
     # Summary
     print("\n" + "="*60)
-    print("✅ PROCESSING COMPLETE!")
+    print("[DONE] PROCESSING COMPLETE!")
     print("="*60)
-    print(f"\n📂 Output directory: {OUTPUT_DIR}")
-    print(f"📹 Total clips created: {len(outputs)}")
+    print(f"\n[DIR] Output directory: {OUTPUT_DIR}")
+    print(f"[CLIP] Total clips created: {len(outputs)}")
     
     for i, output in enumerate(outputs, 1):
         print(f"\n   Clip {i}:")
-        print(f"   └── 📹 {Path(output['video']).name}")
-        print(f"   └── 🖼️ {Path(output['thumbnail']).name}")
-        print(f"   └── 📝 {Path(output['caption_file']).name}")
+        print(f"      [VIDEO] {Path(output['video']).name}")
+        print(f"      [THUMB] {Path(output['thumbnail']).name}")
+        print(f"      [TEXT] {Path(output['caption_file']).name}")
     
     return outputs
 
@@ -242,28 +242,28 @@ Examples:
     
     if not url:
         parser.print_help()
-        print("\n❌ Error: Please provide a YouTube URL")
+        print("\n[ERROR] Error: Please provide a YouTube URL")
         sys.exit(1)
     
     # Validate URL looks like YouTube
     if "youtube.com" not in url and "youtu.be" not in url:
-        print("⚠️ Warning: URL doesn't look like a YouTube link")
+        print("[WARN] Warning: URL doesn't look like a YouTube link")
     
     try:
         outputs = process_video(url, dry_run=args.dry_run)
         
         if outputs:
-            print("\n🎉 Success! Your clips are ready for upload.")
-            print("📂 Check the output folder:", OUTPUT_DIR)
+            print("\n[SUCCESS] Success! Your clips are ready for upload.")
+            print("[DIR] Check the output folder:", OUTPUT_DIR)
         elif not args.dry_run:
-            print("\n😕 No clips were created. Try a different video.")
+            print("\n[INFO] No clips were created. Try a different video.")
             sys.exit(1)
             
     except KeyboardInterrupt:
-        print("\n\n🛑 Process cancelled by user")
+        print("\n\n[STOP] Process cancelled by user")
         sys.exit(0)
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        print(f"\n[ERROR] Error: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

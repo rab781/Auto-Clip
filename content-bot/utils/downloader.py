@@ -37,7 +37,7 @@ def download_audio_only(url: str, output_dir: str) -> str:
         url
     ]
     
-    print(f"📥 Downloading audio from: {url}")
+    print(f"[DL] Downloading audio from: {url}")
     result = subprocess.run(cmd, capture_output=True, text=True)
     
     if result.returncode != 0:
@@ -45,7 +45,7 @@ def download_audio_only(url: str, output_dir: str) -> str:
     
     # Get the output file path from stdout
     output_path = result.stdout.strip().split('\n')[-1]
-    print(f"✅ Audio downloaded: {output_path}")
+    print(f"[OK] Audio downloaded: {output_path}")
     
     return output_path
 
@@ -82,13 +82,13 @@ def download_video_segment(url: str, start: float, end: float, output_path: str)
         url
     ]
     
-    print(f"📥 Downloading video segment: {start_str} - {end_str}")
+    print(f"[DL] Downloading video segment: {start_str} - {end_str}")
     result = subprocess.run(cmd, capture_output=True, text=True)
     
     if result.returncode != 0:
         raise Exception(f"yt-dlp error: {result.stderr}")
     
-    print(f"✅ Video segment downloaded: {output_path}")
+    print(f"[OK] Video segment downloaded: {output_path}")
     return str(output_path)
 
 
