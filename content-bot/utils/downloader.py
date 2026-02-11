@@ -33,6 +33,7 @@ def download_audio_only(url: str, output_dir: str) -> str:
         "-o", output_template,
         "--no-playlist",
         "--print", "after_move:filepath",  # Print final path
+        "--",
         url
     ]
     
@@ -77,6 +78,7 @@ def download_video_segment(url: str, start: float, end: float, output_path: str)
         "-o", str(output_path),
         "--no-playlist",
         "--force-keyframes-at-cuts",  # Precise cutting
+        "--",
         url
     ]
     
@@ -105,6 +107,7 @@ def get_video_info(url: str) -> dict:
         "--dump-json",
         "--no-download",
         "--no-playlist",
+        "--",
         url
     ]
     
