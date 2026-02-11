@@ -12,6 +12,7 @@ import subprocess
 import sys
 import time
 import functools
+import concurrent.futures
 sys.path.append(str(__file__).rsplit('\\', 2)[0])
 
 from config import CHUTES_API_KEY, CHUTES_BASE_URL, WHISPER_MODEL, LLM_MODEL, VIDEO_SETTINGS
@@ -109,35 +110,67 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
     all_segments = []
     full_text = ""
     
+    def process_chunk_task(task_args):
+        """Helper to process a single chunk in a thread."""
+        idx, start_ts, end_ts = task_args
+        chunk_file = temp_dir / f"chunk_{idx:03d}.mp3"
+        label = f"Chunk {idx+1}/{num_chunks}"
+        
+        try:
+            print(f"\n   📍 Processing {label} [{start_ts:.0f}s - {end_ts:.0f}s]...")
+            
+            # Extract chunk using ffmpeg
+            _extract_audio_chunk(audio_path, str(chunk_file), start_ts, end_ts)
+            
+            # Transcribe chunk
+            # Note: _transcribe_chunk internally does retries
+            res = _transcribe_chunk(str(chunk_file), start_ts, max_retries, chunk_label=label)
+            
+            # Clean up chunk file
+            chunk_file.unlink(missing_ok=True)
+            return (idx, start_ts, res)
+            
+        except Exception as err:
+            print(f"   ⚠️ {label} failed: {err}")
+            chunk_file.unlink(missing_ok=True)
+            return (idx, start_ts, None)
+
+    # Prepare tasks
+    tasks = []
     for i in range(num_chunks):
         start_time = i * chunk_duration
         end_time = min((i + 1) * chunk_duration, duration)
-        
-        print(f"\n   📍 Chunk {i+1}/{num_chunks} [{start_time:.0f}s - {end_time:.0f}s]")
-        
-        # Extract chunk using ffmpeg
-        chunk_path = temp_dir / f"chunk_{i:03d}.mp3"
-        _extract_audio_chunk(audio_path, str(chunk_path), start_time, end_time)
-        
-        # Transcribe chunk
-        try:
-            result = _transcribe_chunk(str(chunk_path), start_time, max_retries)
-            
-            # Adjust timestamps and merge
-            if "segments" in result:
-                for seg in result["segments"]:
-                    seg["start"] += start_time
-                    seg["end"] += start_time
-                    all_segments.append(seg)
-            
-            full_text += " " + result.get("text", "")
-            
-            # Clean up chunk file
-            chunk_path.unlink(missing_ok=True)
-            
-        except Exception as e:
-            print(f"   ⚠️ Chunk {i+1} failed: {e}")
-            continue
+        tasks.append((i, start_time, end_time))
+
+    results = []
+    # Use ThreadPoolExecutor for parallel processing
+    # Limit max_workers to 3 to avoid hitting API rate limits or overwhelming the system
+    max_workers = min(3, num_chunks)
+    print(f"   ⚡ Parallel processing with {max_workers} threads...")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_chunk = {executor.submit(process_chunk_task, t): t for t in tasks}
+
+        for future in concurrent.futures.as_completed(future_to_chunk):
+            try:
+                idx, start_ts, res = future.result()
+                if res:
+                    results.append((idx, start_ts, res))
+            except Exception as exc:
+                print(f"   ❌ task generated an exception: {exc}")
+
+    # Sort results by index to maintain order
+    results.sort(key=lambda x: x[0])
+
+    # Merge results
+    for idx, start_ts, result in results:
+        if "segments" in result:
+            for seg in result["segments"]:
+                seg["start"] += start_ts
+                seg["end"] += start_ts
+                all_segments.append(seg)
+
+        full_text += " " + result.get("text", "")
     
     # Clean up temp directory
     try:
@@ -193,7 +226,7 @@ def _extract_audio_chunk(audio_path: str, output_path: str, start: float, end: f
         raise Exception(f"FFmpeg error: {result.stderr[:200]}")
 
 
-def _transcribe_chunk(audio_path: str, time_offset: float, max_retries: int = 3) -> dict:
+def _transcribe_chunk(audio_path: str, time_offset: float, max_retries: int = 3, chunk_label: str = "") -> dict:
     """Transcribe a single audio chunk"""
     import os
     import time
@@ -216,9 +249,11 @@ def _transcribe_chunk(audio_path: str, time_offset: float, max_retries: int = 3)
     file_size_mb = os.path.getsize(audio_path) / (1024 * 1024)
     timeout = max(180, int(file_size_mb * 30) + 60)
     
+    prefix = f"      [{chunk_label}]" if chunk_label else "      "
+
     for attempt in range(max_retries):
         try:
-            print(f"      📤 Uploading chunk (attempt {attempt + 1}/{max_retries})...")
+            print(f"{prefix} 📤 Uploading (attempt {attempt + 1}/{max_retries})...")
             
             response = requests.post(
                 "https://chutes-whisper-large-v3.chutes.ai/transcribe",
@@ -248,21 +283,21 @@ def _transcribe_chunk(audio_path: str, time_offset: float, max_retries: int = 3)
                     if "segments" not in result:
                         result["segments"] = [{"start": 0, "end": 60, "text": result.get("text", "")}]
                 
-                print(f"      ✅ Chunk transcribed: {len(result.get('text', ''))} chars")
+                print(f"{prefix} ✅ Transcribed: {len(result.get('text', ''))} chars")
                 return result
             elif response.status_code == 504:
-                print(f"      ⏰ 504 Timeout on attempt {attempt + 1}")
+                print(f"{prefix} ⏰ 504 Timeout on attempt {attempt + 1}")
             else:
-                print(f"      ⚠️ API status {response.status_code}: {response.text[:100]}")
+                print(f"{prefix} ⚠️ API status {response.status_code}: {response.text[:100]}")
                 
         except requests.exceptions.Timeout:
-            print(f"      ⏰ Request timeout on attempt {attempt + 1}")
+            print(f"{prefix} ⏰ Request timeout on attempt {attempt + 1}")
         except Exception as e:
-            print(f"      ❌ Error on attempt {attempt + 1}: {str(e)[:80]}")
+            print(f"{prefix} ❌ Error on attempt {attempt + 1}: {str(e)[:80]}")
         
         if attempt < max_retries - 1:
             wait_time = (attempt + 1) * 20
-            print(f"      ⏳ Waiting {wait_time}s before retry...")
+            print(f"{prefix} ⏳ Waiting {wait_time}s before retry...")
             time.sleep(wait_time)
     
     raise Exception(f"Failed to transcribe chunk after {max_retries} attempts")
