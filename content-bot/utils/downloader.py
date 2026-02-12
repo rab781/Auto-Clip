@@ -6,6 +6,7 @@ Optimized: Download audio dulu untuk transkripsi, video segment kemudian
 import subprocess
 import sys
 import os
+import json
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -141,7 +142,6 @@ def get_video_info(url: str) -> dict:
     if result.returncode != 0:
         raise Exception(f"yt-dlp error: {result.stderr}")
     
-    import json
     info = json.loads(result.stdout)
     
     return {
