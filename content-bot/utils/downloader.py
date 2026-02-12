@@ -6,6 +6,7 @@ Optimized: Download audio dulu untuk transkripsi, video segment kemudian
 import subprocess
 import sys
 import os
+import yt_dlp
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -46,29 +47,39 @@ def download_audio_only(url: str, output_dir: str) -> str:
     
     output_template = str(output_dir / "%(title)s.%(ext)s")
     
-    cmd = [
-        sys.executable, "-m", "yt_dlp",  # Use python -m for Windows compatibility
-        "-x",  # Extract audio only
-        "--audio-format", "mp3",
-        "--audio-quality", "192K",
-        "-o", output_template,
-        "--no-playlist",
-        "--print", "after_move:filepath",  # Print final path
-        "--",
-        url
-    ]
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'outtmpl': output_template,
+        'noplaylist': True,
+        'quiet': True,
+    }
     
     print(f"[DL] Downloading audio from: {url}")
-    result = subprocess.run(cmd, capture_output=True, text=True)
     
-    if result.returncode != 0:
-        raise Exception(f"yt-dlp error: {result.stderr}")
-    
-    # Get the output file path from stdout
-    output_path = result.stdout.strip().split('\n')[-1]
-    print(f"[OK] Audio downloaded: {output_path}")
-    
-    return output_path
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+
+            # The downloaded file path is typically in requested_downloads
+            if 'requested_downloads' in info and info['requested_downloads']:
+                output_path = info['requested_downloads'][0]['filepath']
+            else:
+                # Fallback: calculate expected filename
+                # Note: prepare_filename returns the name BEFORE post-processing (e.g. .webm)
+                # But we know we are converting to mp3
+                original_filename = ydl.prepare_filename(info)
+                output_path = str(Path(original_filename).with_suffix('.mp3'))
+
+            print(f"[OK] Audio downloaded: {output_path}")
+            return output_path
+
+    except Exception as e:
+        raise Exception(f"yt-dlp error: {str(e)}")
 
 
 def download_video_segment(url: str, start: float, end: float, output_path: str) -> str:
