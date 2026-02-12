@@ -140,7 +140,6 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
     for i in range(num_chunks):
         start_time = i * chunk_duration
         end_time = min((i + 1) * chunk_duration, duration)
-<<<<<<< HEAD
         tasks.append((i, start_time, end_time))
 
     results = []
@@ -172,38 +171,6 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
                 all_segments.append(seg)
 
         full_text += " " + result.get("text", "")
-=======
-        
-    for i in range(num_chunks):
-        start_time = i * chunk_duration
-        end_time = min((i + 1) * chunk_duration, duration)
-        
-        print(f"\n   [LOC] Chunk {i+1}/{num_chunks} [{start_time:.0f}s - {end_time:.0f}s]")
-        
-        # Extract chunk using ffmpeg
-        chunk_path = temp_dir / f"chunk_{i:03d}.mp3"
-        _extract_audio_chunk(audio_path, str(chunk_path), start_time, end_time)
-        
-        # Transcribe chunk
-        try:
-            result = _transcribe_chunk(str(chunk_path), start_time, max_retries)
-            
-            # Adjust timestamps and merge
-            if "segments" in result:
-                for seg in result["segments"]:
-                    seg["start"] += start_time
-                    seg["end"] += start_time
-                    all_segments.append(seg)
-            
-            full_text += " " + result.get("text", "")
-            
-            # Clean up chunk file
-            chunk_path.unlink(missing_ok=True)
-            
-        except Exception as e:
-            print(f"   [WARN] Chunk {i+1} failed: {e}")
-            continue
->>>>>>> fd99254 (feat: Implement the initial Auto-Clip Bot pipeline for automated YouTube video analysis and viral clip generation.)
     
     # Clean up temp directory
     try:
@@ -286,11 +253,7 @@ def _transcribe_chunk(audio_path: str, time_offset: float, max_retries: int = 3,
 
     for attempt in range(max_retries):
         try:
-<<<<<<< HEAD
             print(f"{prefix} 📤 Uploading (attempt {attempt + 1}/{max_retries})...")
-=======
-            print(f"      [UPLOAD] Uploading chunk (attempt {attempt + 1}/{max_retries})...")
->>>>>>> fd99254 (feat: Implement the initial Auto-Clip Bot pipeline for automated YouTube video analysis and viral clip generation.)
             
             response = requests.post(
                 "https://chutes-whisper-large-v3.chutes.ai/transcribe",
