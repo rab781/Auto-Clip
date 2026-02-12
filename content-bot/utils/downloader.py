@@ -7,6 +7,25 @@ import subprocess
 import sys
 import os
 from pathlib import Path
+from urllib.parse import urlparse
+
+
+def _validate_youtube_url(url: str):
+    """
+    Validate that the URL is a legitimate YouTube URL to prevent SSRF/local file access.
+    """
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ["http", "https"]:
+            raise ValueError(f"Invalid URL scheme: {parsed.scheme}")
+
+        allowed_domains = ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"]
+        if parsed.netloc.lower() not in allowed_domains:
+            raise ValueError(f"Invalid domain: {parsed.netloc}")
+    except ValueError as e:
+        raise ValueError(f"Security validation failed: {str(e)}")
+    except Exception as e:
+        raise ValueError(f"Invalid URL format: {str(e)}")
 
 
 def download_audio_only(url: str, output_dir: str) -> str:
@@ -20,6 +39,8 @@ def download_audio_only(url: str, output_dir: str) -> str:
     Returns:
         Path ke file audio yang didownload
     """
+    _validate_youtube_url(url)
+
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     
@@ -63,6 +84,8 @@ def download_video_segment(url: str, start: float, end: float, output_path: str)
     Returns:
         Path ke file video segment
     """
+    _validate_youtube_url(url)
+
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
@@ -102,6 +125,8 @@ def get_video_info(url: str) -> dict:
     Returns:
         Dictionary dengan info video
     """
+    _validate_youtube_url(url)
+
     cmd = [
         sys.executable, "-m", "yt_dlp",  # Use python -m for Windows compatibility
         "--dump-json",
