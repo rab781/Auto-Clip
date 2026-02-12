@@ -2,6 +2,7 @@ import unittest
 import sys
 import os
 from pathlib import Path
+from unittest.mock import patch
 
 # Add project root to path so we can import modules
 sys.path.append(str(Path(__file__).parent.parent))
@@ -9,6 +10,29 @@ sys.path.append(str(Path(__file__).parent.parent))
 from utils.downloader import get_video_info, download_audio_only, download_video_segment
 
 class TestSecurityDownloader(unittest.TestCase):
+
+    @patch('utils.downloader._validate_youtube_url')
+    def test_argument_injection_bypass_validation(self, mock_validate):
+        """
+        Test that even if validation is bypassed, yt-dlp arguments are not injected.
+        This confirms the presence and effectiveness of the '--' delimiter.
+        """
+        # Mock validation to allow anything
+        mock_validate.return_value = True
+
+        # Payload that would be interpreted as a flag if injection exists
+        payload = "--version"
+
+        try:
+            get_video_info(payload)
+            self.fail("Should have raised an exception (yt-dlp error)")
+        except Exception as e:
+            # If yt-dlp tried to download "--version", it fails with exit code != 0
+            # and raises Exception("yt-dlp error...").
+            # If it executed "--version", it succeeds (exit code 0) and prints version,
+            # which causes JSON decode error in get_video_info.
+            self.assertIn("yt-dlp error", str(e),
+                          "yt-dlp executed the flag instead of treating it as a URL!")
 
     def test_get_video_info_injection(self):
         """Test that passing a flag as URL is blocked by validation."""

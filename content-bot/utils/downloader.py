@@ -112,7 +112,7 @@ def download_video_segment(url: str, start: float, end: float, output_path: str)
         "-o", str(output_path),
         "--no-playlist",
         "--force-keyframes-at-cuts",  # Precise cutting
-        "--",
+        "--",  # Security: Prevent argument injection
         url
     ]
     
@@ -143,7 +143,7 @@ def get_video_info(url: str) -> dict:
         "--dump-json",
         "--no-download",
         "--no-playlist",
-        "--",
+        "--",  # Security: Prevent argument injection
         url
     ]
     
