@@ -1,4 +1,3 @@
-
 import unittest
 import sys
 import os
@@ -12,48 +11,76 @@ from utils.downloader import get_video_info, download_audio_only, download_video
 class TestSecurityDownloader(unittest.TestCase):
 
     def test_get_video_info_injection(self):
-        """Test that passing a flag as URL is treated as an invalid URL, not an option."""
-        # Using --help as the injection payload
+        """Test that passing a flag as URL is blocked by validation."""
         payload = "--help"
 
-        # If vulnerable, this would likely raise JSONDecodeError or return garbage
-        # If fixed, this should raise an Exception from subprocess returning non-zero (invalid URL)
-
-        # We need to catch Exception broadly because get_video_info might raise JSONDecodeError if vulnerable
-        # or Exception("yt-dlp error") if fixed.
+        # Should be blocked by URL validation now
         try:
             get_video_info(payload)
             self.fail("No exception raised for invalid URL/flag injection")
+        except ValueError as e:
+            self.assertIn("Security validation failed", str(e))
         except Exception as e:
-            # Check if it's the secure error (yt-dlp error)
-            if "yt-dlp error" in str(e):
-                # This is good
-                pass
-            else:
-                # This is likely JSONDecodeError or similar, meaning vulnerability executed
-                self.fail(f"Vulnerability executed or unexpected error: {e}")
+            self.fail(f"Unexpected exception type: {type(e)}")
 
     def test_download_audio_injection(self):
-        """Test that download_audio_only treats flags as URLs."""
+        """Test that download_audio_only validation blocks flags."""
         payload = "--version"
         output_dir = "tests/temp"
 
-        with self.assertRaises(Exception) as cm:
+        with self.assertRaises(ValueError) as cm:
             download_audio_only(payload, output_dir)
 
-        self.assertIn("yt-dlp error", str(cm.exception))
+        self.assertIn("Security validation failed", str(cm.exception))
 
     def test_download_video_segment_injection(self):
-        """Test that download_video_segment treats flags as URLs."""
+        """Test that download_video_segment validation blocks flags."""
         payload = "--version"
         output_path = "tests/temp/segment.mp4"
         start = 0
         end = 10
 
-        with self.assertRaises(Exception) as cm:
+        with self.assertRaises(ValueError) as cm:
             download_video_segment(payload, start, end, output_path)
 
-        self.assertIn("yt-dlp error", str(cm.exception))
+        self.assertIn("Security validation failed", str(cm.exception))
+
+    def test_url_validation(self):
+        """Test URL validation logic."""
+        # Valid URLs
+        valid_urls = [
+            "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            "https://youtu.be/dQw4w9WgXcQ",
+            "https://m.youtube.com/watch?v=dQw4w9WgXcQ"
+        ]
+
+        for url in valid_urls:
+            try:
+                # calling get_video_info triggers validation first.
+                # It might fail later with network error or yt-dlp error,
+                # but NOT Security validation failed.
+                get_video_info(url)
+            except ValueError as e:
+                if "Security validation failed" in str(e):
+                     self.fail(f"Valid URL failed validation: {url}")
+            except Exception:
+                # Ignore other errors (network, etc)
+                pass
+
+        # Invalid URLs
+        invalid_urls = [
+            "http://example.com/video",
+            "https://google.com",
+            "file:///etc/passwd",
+            "http://localhost:8000/video.mp4",
+            "ftp://youtube.com/video",
+            "javascript:alert(1)",
+        ]
+
+        for url in invalid_urls:
+            with self.assertRaises(ValueError) as cm:
+                get_video_info(url)
+            self.assertIn("Security validation failed", str(cm.exception))
 
 if __name__ == '__main__':
     unittest.main()
