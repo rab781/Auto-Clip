@@ -110,31 +110,6 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
     all_segments = []
     full_text = ""
     
-    def process_chunk_task(task_args):
-        """Helper to process a single chunk in a thread."""
-        idx, start_ts, end_ts = task_args
-        chunk_file = temp_dir / f"chunk_{idx:03d}.mp3"
-        label = f"Chunk {idx+1}/{num_chunks}"
-        
-        try:
-            print(f"\n   📍 Processing {label} [{start_ts:.0f}s - {end_ts:.0f}s]...")
-            
-            # Extract chunk using ffmpeg
-            _extract_audio_chunk(audio_path, str(chunk_file), start_ts, end_ts)
-            
-            # Transcribe chunk
-            # Note: _transcribe_chunk internally does retries
-            res = _transcribe_chunk(str(chunk_file), start_ts, max_retries, chunk_label=label)
-            
-            # Clean up chunk file
-            chunk_file.unlink(missing_ok=True)
-            return (idx, start_ts, res)
-            
-        except Exception as err:
-            print(f"   ⚠️ {label} failed: {err}")
-            chunk_file.unlink(missing_ok=True)
-            return (idx, start_ts, None)
-
     # Prepare tasks
     tasks = []
     for i in range(num_chunks):
@@ -148,16 +123,43 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
     max_workers = min(3, num_chunks)
     print(f"   ⚡ Parallel processing with {max_workers} threads...")
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_chunk = {executor.submit(process_chunk_task, t): t for t in tasks}
+    # Use a session for connection pooling across threads
+    with requests.Session() as session:
+        def process_chunk_task(task_args):
+            """Helper to process a single chunk in a thread."""
+            idx, start_ts, end_ts = task_args
+            chunk_file = temp_dir / f"chunk_{idx:03d}.mp3"
+            label = f"Chunk {idx+1}/{num_chunks}"
 
-        for future in concurrent.futures.as_completed(future_to_chunk):
             try:
-                idx, start_ts, res = future.result()
-                if res:
-                    results.append((idx, start_ts, res))
-            except Exception as exc:
-                print(f"   ❌ task generated an exception: {exc}")
+                print(f"\n   📍 Processing {label} [{start_ts:.0f}s - {end_ts:.0f}s]...")
+
+                # Extract chunk using ffmpeg
+                _extract_audio_chunk(audio_path, str(chunk_file), start_ts, end_ts)
+
+                # Transcribe chunk
+                # Note: _transcribe_chunk internally does retries
+                res = _transcribe_chunk(str(chunk_file), start_ts, max_retries, chunk_label=label, session=session)
+
+                # Clean up chunk file
+                chunk_file.unlink(missing_ok=True)
+                return (idx, start_ts, res)
+
+            except Exception as err:
+                print(f"   ⚠️ {label} failed: {err}")
+                chunk_file.unlink(missing_ok=True)
+                return (idx, start_ts, None)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_chunk = {executor.submit(process_chunk_task, t): t for t in tasks}
+
+            for future in concurrent.futures.as_completed(future_to_chunk):
+                try:
+                    idx, start_ts, res = future.result()
+                    if res:
+                        results.append((idx, start_ts, res))
+                except Exception as exc:
+                    print(f"   ❌ task generated an exception: {exc}")
 
     # Sort results by index to maintain order
     results.sort(key=lambda x: x[0])
@@ -226,7 +228,7 @@ def _extract_audio_chunk(audio_path: str, output_path: str, start: float, end: f
         raise Exception(f"FFmpeg error: {result.stderr[:200]}")
 
 
-def _transcribe_chunk(audio_path: str, time_offset: float, max_retries: int = 3, chunk_label: str = "") -> dict:
+def _transcribe_chunk(audio_path: str, time_offset: float, max_retries: int = 3, chunk_label: str = "", session=None) -> dict:
     """Transcribe a single audio chunk"""
     import os
     import time
@@ -250,12 +252,13 @@ def _transcribe_chunk(audio_path: str, time_offset: float, max_retries: int = 3,
     timeout = max(180, int(file_size_mb * 30) + 60)
     
     prefix = f"      [{chunk_label}]" if chunk_label else "      "
+    requester = session if session else requests
 
     for attempt in range(max_retries):
         try:
             print(f"{prefix} 📤 Uploading (attempt {attempt + 1}/{max_retries})...")
             
-            response = requests.post(
+            response = requester.post(
                 "https://chutes-whisper-large-v3.chutes.ai/transcribe",
                 headers=headers,
                 json=body,
