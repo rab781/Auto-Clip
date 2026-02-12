@@ -46,14 +46,19 @@ class FaceTracker:
         frame_count = 0
         
         while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
+            # Grab next frame (much faster than decoding via read())
+            if not cap.grab():
                 break
             
-            # Skip frames for performance
+            # Skip frames for performance without decoding
             if frame_count % sample_interval != 0:
                 frame_count += 1
                 continue
+
+            # Retrieve (decode) frame only when needed
+            ret, frame = cap.retrieve()
+            if not ret:
+                break
 
             # Convert BGR to RGB
             try:
