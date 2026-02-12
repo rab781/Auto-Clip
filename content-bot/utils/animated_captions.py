@@ -3,7 +3,7 @@
 Modul untuk generate subtitle format ASS (Advanced Substation Alpha)
 dengan animasi word-by-word (Karaoke/Highlight style) ala CapCut/TikTok.
 """
-import datetime
+from utils.time_utils import format_timestamp
 
 def generate_animated_ass(segments: list, output_path: str, settings: dict) -> str:
     """
@@ -18,16 +18,6 @@ def generate_animated_ass(segments: list, output_path: str, settings: dict) -> s
         Path to generated .ass file
     """
     
-    def seconds_to_ass_time(seconds):
-        """Convert seconds to H:MM:SS.cs format"""
-        dt = datetime.timedelta(seconds=seconds)
-        total_seconds = int(dt.total_seconds())
-        hours = total_seconds // 3600
-        minutes = (total_seconds % 3600) // 60
-        secs = total_seconds % 60
-        centiseconds = int((seconds - total_seconds) * 100)
-        return f"{hours}:{minutes:02d}:{secs:02d}.{centiseconds:02d}"
-
     # Extract settings
     font = settings.get("font", "Segoe UI Semibold")
     font_size = settings.get("font_size", 72)
@@ -100,8 +90,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 
                 formatted_text = formatted_text.strip()
                 
-                start_str = seconds_to_ass_time(frame_start)
-                end_str = seconds_to_ass_time(frame_end)
+                start_str = format_timestamp(frame_start, 'ass')
+                end_str = format_timestamp(frame_end, 'ass')
                 
                 ass_content += f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{formatted_text}\n"
             
