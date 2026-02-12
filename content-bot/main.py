@@ -11,6 +11,7 @@ Usage:
 import sys
 import shutil
 import argparse
+import concurrent.futures
 from pathlib import Path
 from tqdm import tqdm
 
@@ -26,6 +27,66 @@ from utils import (
     validate_dependencies,
     create_final_clip,
 )
+
+
+def process_single_clip(i: int, clip: dict, url: str, transcription: dict) -> dict:
+    """
+    Process a single clip: download, enhance, translate, and create video.
+    Returns the result dict or None if failed.
+    """
+    try:
+        # Download video segment
+        segment_path = TEMP_DIR / f"segment_{i}.mp4"
+        try:
+            download_video_segment(url, clip["start"], clip["end"], str(segment_path))
+        except Exception as e:
+            print(f"\n! Failed to download segment {i}: {e}")
+            return None
+
+        # Extract relevant transcript segments for this clip
+        clip_segments = []
+        if "segments" in transcription:
+            for seg in transcription["segments"]:
+                if seg["start"] >= clip["start"] and seg["end"] <= clip["end"]:
+                    clip_segments.append({
+                        "start": seg["start"] - clip["start"],
+                        "end": seg["end"] - clip["start"],
+                        "text": seg["text"]
+                    })
+
+        # Generate enhanced caption
+        transcript_text = " ".join([s["text"] for s in clip_segments])
+        try:
+            enhanced_caption = generate_clip_caption(clip, transcript_text)
+            clip["enhanced_caption"] = enhanced_caption
+        except Exception as e:
+            print(f"\n! Caption generation failed: {e}")
+            clip["enhanced_caption"] = clip.get("caption_title", "")
+
+        # Translate segments to Indonesian
+        if clip_segments:
+            try:
+                clip_segments = translate_segments(clip_segments)
+            except Exception as e:
+                print(f"\n! Translation failed, using original text: {e}")
+
+        # Create final clip
+        try:
+            result = create_final_clip(
+                video_segment_path=str(segment_path),
+                clip_info=clip,
+                segments=clip_segments,
+                clip_number=i,
+                output_dir=str(OUTPUT_DIR)
+            )
+            return result
+        except Exception as e:
+            print(f"\n! Failed to process clip {i}: {e}")
+            return None
+
+    except Exception as e:
+        print(f"\n! Unexpected error in clip {i}: {e}")
+        return None
 
 
 def cleanup_temp(temp_dir: str = None):
@@ -124,66 +185,38 @@ def process_video(url: str, dry_run: bool = False) -> list:
     progress.set_description("[CLIP] Processing clips")
     outputs = []
     
-    clip_progress = tqdm(
-        enumerate(clips, 1), 
-        total=len(clips), 
-        desc="Clips", 
-        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
-    )
+    # Use ThreadPoolExecutor for parallel processing
+    # Recommended max_workers=3 to prevent stability issues
+    max_workers = 3
+    print(f"   [PARALLEL] Processing clips with {max_workers} threads...")
     
-    for i, clip in clip_progress:
-        clip_progress.set_description(f"Clip {i}/{len(clips)}")
+    temp_results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all tasks
+        future_to_clip = {
+            executor.submit(process_single_clip, i, clip, url, transcription): i
+            for i, clip in enumerate(clips, 1)
+        }
         
-        # Download video segment
-        segment_path = TEMP_DIR / f"segment_{i}.mp4"
-        try:
-            download_video_segment(url, clip["start"], clip["end"], str(segment_path))
-        except Exception as e:
-            print(f"\n! Failed to download segment {i}: {e}")
-            continue
+        clip_progress = tqdm(
+            concurrent.futures.as_completed(future_to_clip),
+            total=len(clips),
+            desc="Clips",
+            bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
+        )
         
-        # Extract relevant transcript segments for this clip
-        clip_segments = []
-        if "segments" in transcription:
-            for seg in transcription["segments"]:
-                if seg["start"] >= clip["start"] and seg["end"] <= clip["end"]:
-                    clip_segments.append({
-                        "start": seg["start"] - clip["start"],
-                        "end": seg["end"] - clip["start"],
-                        "text": seg["text"]
-                    })
-        
-        # Generate enhanced caption
-        transcript_text = " ".join([s["text"] for s in clip_segments])
-        try:
-            enhanced_caption = generate_clip_caption(clip, transcript_text)
-            clip["enhanced_caption"] = enhanced_caption
-        except Exception as e:
-            print(f"\n! Caption generation failed: {e}")
-            clip["enhanced_caption"] = clip.get("caption_title", "")
-        
-        # Translate segments to Indonesian
-        if clip_segments:
+        for future in clip_progress:
+            i = future_to_clip[future]
             try:
-                clip_segments = translate_segments(clip_segments)
+                result = future.result()
+                if result:
+                    temp_results.append((i, result))
             except Exception as e:
-                print(f"\n! Translation failed, using original text: {e}")
-        
-        # Create final clip
-        try:
-            result = create_final_clip(
-                video_segment_path=str(segment_path),
-                clip_info=clip,
-                segments=clip_segments,
-                clip_number=i,
-                output_dir=str(OUTPUT_DIR)
-            )
-            outputs.append(result)
-        except Exception as e:
-            print(f"\n! Failed to process clip {i}: {e}")
-            continue
+                print(f"\n! Error getting result for clip {i}: {e}")
     
-    clip_progress.close()
+    # Sort results by clip number to maintain order
+    temp_results.sort(key=lambda x: x[0])
+    outputs = [r[1] for r in temp_results]
     progress.update(1)
     progress.close()
     
