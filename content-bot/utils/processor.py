@@ -19,6 +19,7 @@ from config import (
     TEMP_DIR, OUTPUT_DIR, BGM_DIR
 )
 from utils.animated_captions import generate_animated_ass
+from utils.time_utils import format_timestamp
 
 # Try to import FaceTracker for smart crop
 try:
@@ -161,8 +162,8 @@ def generate_srt_from_segments(segments: list, output_path: str, words_per_line:
             # Minimum 0.5s per entry, maximum matches group timing
             group_end = min(group_end, seg_end)
             
-            start_str = _seconds_to_srt_time(group_start)
-            end_str = _seconds_to_srt_time(group_end)
+            start_str = format_timestamp(group_start, 'srt')
+            end_str = format_timestamp(group_end, 'srt')
             
             srt_entries.append(f"{entry_index}\n{start_str} --> {end_str}\n{group}\n\n")
             entry_index += 1
@@ -512,15 +513,6 @@ def create_final_clip(
         "caption_text": caption_text,
         "mood": mood,
     }
-
-
-def _seconds_to_srt_time(seconds: float) -> str:
-    """Convert seconds to SRT timestamp format (HH:MM:SS,mmm)"""
-    hours = int(seconds // 3600)
-    minutes = int((seconds % 3600) // 60)
-    secs = int(seconds % 60)
-    millis = int((seconds % 1) * 1000)
-    return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
 
 def _get_video_duration(video_path: str) -> float:
