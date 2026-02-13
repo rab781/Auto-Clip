@@ -3,13 +3,14 @@
 Modul untuk mendownload audio/video dari YouTube
 Optimized: Download audio dulu untuk transkripsi, video segment kemudian
 """
-import subprocess
 import sys
 import os
 import json
 import yt_dlp
 from pathlib import Path
 from urllib.parse import urlparse
+import yt_dlp
+from yt_dlp.utils import download_range_func
 
 
 def _validate_youtube_url(url: str):
@@ -101,30 +102,33 @@ def download_video_segment(url: str, start: float, end: float, output_path: str)
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
-    # Format time as HH:MM:SS
+    # Format time as HH:MM:SS for display (optional)
     start_str = _seconds_to_hhmmss(start)
     end_str = _seconds_to_hhmmss(end)
     
-    cmd = [
-        sys.executable, "-m", "yt_dlp",  # Use python -m for Windows compatibility
-        "--download-sections", f"*{start_str}-{end_str}",
-        "-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
-        "--merge-output-format", "mp4",
-        "-o", str(output_path),
-        "--no-playlist",
-        "--force-keyframes-at-cuts",  # Precise cutting
-        "--",  # Security: Prevent argument injection
-        url
-    ]
-    
+    ydl_opts = {
+        'format': 'bestvideo[height<=1080]+bestaudio/best[height<=1080]',
+        'outtmpl': str(output_path),
+        'download_ranges': download_range_func(None, [(start, end)]),
+        'force_keyframes_at_cuts': True,
+        'merge_output_format': 'mp4',
+        'noplaylist': True,
+        'quiet': True,
+    }
+
     print(f"[DL] Downloading video segment: {start_str} - {end_str}")
-    result = subprocess.run(cmd, capture_output=True, text=True)
     
-    if result.returncode != 0:
-        raise Exception(f"yt-dlp error: {result.stderr}")
-    
-    print(f"[OK] Video segment downloaded: {output_path}")
-    return str(output_path)
+    try:
+        # Optimized: Use direct yt_dlp library call instead of subprocess
+        # This avoids process creation overhead and provides better error handling
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+
+        print(f"[OK] Video segment downloaded: {output_path}")
+        return str(output_path)
+
+    except Exception as e:
+        raise Exception(f"yt-dlp error: {str(e)}")
 
 
 def get_video_info(url: str) -> dict:
@@ -139,29 +143,28 @@ def get_video_info(url: str) -> dict:
     """
     _validate_youtube_url(url)
 
-    cmd = [
-        sys.executable, "-m", "yt_dlp",  # Use python -m for Windows compatibility
-        "--dump-json",
-        "--no-download",
-        "--no-playlist",
-        "--",  # Security: Prevent argument injection
-        url
-    ]
-    
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    
-    if result.returncode != 0:
-        raise Exception(f"yt-dlp error: {result.stderr}")
-    
-    info = json.loads(result.stdout)
-    
-    return {
-        "title": info.get("title", "Unknown"),
-        "duration": info.get("duration", 0),
-        "uploader": info.get("uploader", "Unknown"),
-        "description": info.get("description", ""),
-        "thumbnail": info.get("thumbnail", ""),
+    # Optimized: Use direct yt_dlp library call instead of subprocess
+    # This avoids process creation overhead, especially critical for frequent metadata checks
+    ydl_opts = {
+        'dump_single_json': True,
+        'extract_flat': 'in_playlist',
+        'noplaylist': True,
+        'quiet': True,
     }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+
+        return {
+            "title": info.get("title", "Unknown"),
+            "duration": info.get("duration", 0),
+            "uploader": info.get("uploader", "Unknown"),
+            "description": info.get("description", ""),
+            "thumbnail": info.get("thumbnail", ""),
+        }
+    except Exception as e:
+        raise Exception(f"yt-dlp error: {str(e)}")
 
 
 def _seconds_to_hhmmss(seconds: float) -> str:
@@ -175,5 +178,8 @@ def _seconds_to_hhmmss(seconds: float) -> str:
 if __name__ == "__main__":
     # Quick test
     test_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    info = get_video_info(test_url)
-    print(f"Video: {info['title']} ({info['duration']}s)")
+    try:
+        info = get_video_info(test_url)
+        print(f"Video: {info['title']} ({info['duration']}s)")
+    except Exception as e:
+        print(f"Error: {e}")
