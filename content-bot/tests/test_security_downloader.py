@@ -2,7 +2,15 @@ import unittest
 import sys
 import os
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
+
+# Mock dependencies before importing downloader
+sys.modules['yt_dlp'] = MagicMock()
+sys.modules['requests'] = MagicMock()
+sys.modules['dotenv'] = MagicMock()
+sys.modules['cv2'] = MagicMock()
+sys.modules['mediapipe'] = MagicMock()
+sys.modules['numpy'] = MagicMock()
 
 # Add project root to path so we can import modules
 sys.path.append(str(Path(__file__).parent.parent))

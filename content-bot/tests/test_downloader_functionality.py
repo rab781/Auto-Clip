@@ -4,6 +4,14 @@ import sys
 import json
 from pathlib import Path
 
+# Mock dependencies before import
+sys.modules['yt_dlp'] = MagicMock()
+sys.modules['requests'] = MagicMock()
+sys.modules['dotenv'] = MagicMock()
+sys.modules['cv2'] = MagicMock()
+sys.modules['mediapipe'] = MagicMock()
+sys.modules['numpy'] = MagicMock()
+
 # Add project root to path
 sys.path.append(str(Path(__file__).parent.parent))
 

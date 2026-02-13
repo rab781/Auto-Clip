@@ -7,6 +7,7 @@ import subprocess
 import sys
 import os
 import json
+import yt_dlp
 from pathlib import Path
 from urllib.parse import urlparse
 
