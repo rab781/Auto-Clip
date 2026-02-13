@@ -193,7 +193,8 @@ def burn_captions(video_path: str, srt_path: str, output_path: str) -> str:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
     # Escape path untuk FFmpeg (Windows needs special handling)
-    srt_escaped = str(srt_path).replace("\\", "/").replace(":", "\\:")
+    # Also escape single quotes for filter string syntax
+    srt_escaped = str(srt_path).replace("\\", "/").replace(":", "\\:").replace("'", r"'\''")
     
     # Check if ASS (Animated) or SRT (Simple)
     is_ass = str(srt_path).lower().endswith(".ass")
