@@ -520,7 +520,8 @@ HANYA OUTPUT JSON, tanpa penjelasan tambahan."""
     response = requests.post(
         f"{CHUTES_BASE_URL}/chat/completions",
         headers=headers,
-        json=data
+        json=data,
+        timeout=120  # Security: Timeout after 2m to prevent indefinite hang
     )
     
     if response.status_code != 200:
@@ -606,7 +607,8 @@ OUTPUT langsung caption-nya saja, tanpa label atau penjelasan."""
     response = requests.post(
         f"{CHUTES_BASE_URL}/chat/completions",
         headers=headers,
-        json=data
+        json=data,
+        timeout=60  # Security: Timeout after 60s
     )
     
     if response.status_code != 200:
