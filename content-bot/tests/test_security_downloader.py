@@ -6,6 +6,7 @@ from unittest.mock import patch, MagicMock
 
 # Mock dependencies before importing downloader
 sys.modules['yt_dlp'] = MagicMock()
+sys.modules['yt_dlp.utils'] = MagicMock()
 sys.modules['requests'] = MagicMock()
 sys.modules['dotenv'] = MagicMock()
 sys.modules['cv2'] = MagicMock()
@@ -19,7 +20,7 @@ from utils.downloader import get_video_info, download_audio_only, download_video
 
 class TestSecurityDownloader(unittest.TestCase):
 
-    @patch('utils.downloader._validate_youtube_url')
+    @patch('utils.downloader.validate_youtube_url')
     def test_argument_injection_bypass_validation(self, mock_validate):
         """
         Test that even if validation is bypassed, yt-dlp arguments are not injected.

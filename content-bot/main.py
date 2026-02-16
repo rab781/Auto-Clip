@@ -20,6 +20,7 @@ from utils import (
     download_audio_only,
     download_video_segment,
     get_video_info,
+    validate_youtube_url,
     transcribe_audio,
     analyze_content_for_clips,
     generate_clip_caption,
@@ -267,6 +268,11 @@ Examples:
         action="store_true",
         help="Analyze only, don't process clips"
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug mode (show full stack trace)"
+    )
     
     args = parser.parse_args()
     
@@ -279,8 +285,11 @@ Examples:
         sys.exit(1)
     
     # Validate URL looks like YouTube
-    if "youtube.com" not in url and "youtu.be" not in url:
-        print("[WARN] Warning: URL doesn't look like a YouTube link")
+    try:
+        validate_youtube_url(url)
+    except ValueError as e:
+        print(f"[ERROR] Invalid URL: {e}")
+        sys.exit(1)
     
     try:
         outputs = process_video(url, dry_run=args.dry_run)
@@ -297,8 +306,11 @@ Examples:
         sys.exit(0)
     except Exception as e:
         print(f"\n[ERROR] Error: {e}")
-        import traceback
-        traceback.print_exc()
+        if args.debug:
+            import traceback
+            traceback.print_exc()
+        else:
+            print("Use --debug to see full stack trace.")
         sys.exit(1)
 
 
