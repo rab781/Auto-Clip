@@ -2,7 +2,12 @@
 """
 Auto-Clip Utils Package
 """
-from .downloader import download_audio_only, download_video_segment, get_video_info
+from .downloader import (
+    download_audio_only,
+    download_video_segment,
+    get_video_info,
+    validate_youtube_url
+)
 from .ai_logic import (
     transcribe_audio, analyze_content_for_clips, generate_clip_caption,
     translate_segments, validate_dependencies, api_retry
@@ -22,6 +27,7 @@ __all__ = [
     "download_audio_only",
     "download_video_segment",
     "get_video_info",
+    "validate_youtube_url",
     # AI
     "transcribe_audio",
     "analyze_content_for_clips",

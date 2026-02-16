@@ -6,6 +6,7 @@ from pathlib import Path
 
 # Mock dependencies before import
 sys.modules['yt_dlp'] = MagicMock()
+sys.modules['yt_dlp.utils'] = MagicMock()
 sys.modules['requests'] = MagicMock()
 sys.modules['dotenv'] = MagicMock()
 sys.modules['cv2'] = MagicMock()
@@ -22,7 +23,7 @@ from utils.downloader import download_audio_only
 
 class TestDownloaderMock(unittest.TestCase):
 
-    @patch('utils.downloader.yt_dlp.YoutubeDL')
+    @patch('yt_dlp.YoutubeDL')
     def test_download_audio_only_success(self, mock_ydl_class):
         # Setup mock
         mock_ydl = MagicMock()
@@ -55,7 +56,7 @@ class TestDownloaderMock(unittest.TestCase):
         # Verify extract_info called correctly
         mock_ydl.extract_info.assert_called_once_with(url, download=True)
 
-    @patch('utils.downloader.yt_dlp.YoutubeDL')
+    @patch('yt_dlp.YoutubeDL')
     def test_download_audio_only_fallback(self, mock_ydl_class):
         # Setup mock for fallback case (requested_downloads missing)
         mock_ydl = MagicMock()
