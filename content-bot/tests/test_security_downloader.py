@@ -3,21 +3,34 @@ import sys
 import os
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-
-# Mock dependencies before importing downloader
-sys.modules['yt_dlp'] = MagicMock()
-sys.modules['requests'] = MagicMock()
-sys.modules['dotenv'] = MagicMock()
-sys.modules['cv2'] = MagicMock()
-sys.modules['mediapipe'] = MagicMock()
-sys.modules['numpy'] = MagicMock()
+import importlib
 
 # Add project root to path so we can import modules
 sys.path.append(str(Path(__file__).parent.parent))
 
-from utils.downloader import get_video_info, download_audio_only, download_video_segment
-
 class TestSecurityDownloader(unittest.TestCase):
+
+    def setUp(self):
+        # Mock dependencies using patch.dict on sys.modules
+        self.modules_patcher = patch.dict(sys.modules, {
+            'yt_dlp': MagicMock(),
+            'yt_dlp.utils': MagicMock(),
+            'requests': MagicMock(),
+            'dotenv': MagicMock(),
+            'cv2': MagicMock(),
+            'mediapipe': MagicMock(),
+            'numpy': MagicMock()
+        })
+        self.modules_patcher.start()
+
+        # Reload utils.downloader to ensure it uses mocked dependencies
+        if 'utils.downloader' in sys.modules:
+            importlib.reload(sys.modules['utils.downloader'])
+        else:
+            import utils.downloader
+
+    def tearDown(self):
+        self.modules_patcher.stop()
 
     @patch('utils.downloader._validate_youtube_url')
     def test_argument_injection_bypass_validation(self, mock_validate):
@@ -25,6 +38,8 @@ class TestSecurityDownloader(unittest.TestCase):
         Test that even if validation is bypassed, yt-dlp arguments are not injected.
         This confirms the presence and effectiveness of the '--' delimiter.
         """
+        import utils.downloader
+
         # Mock validation to allow anything
         mock_validate.return_value = True
 
@@ -32,7 +47,7 @@ class TestSecurityDownloader(unittest.TestCase):
         payload = "--version"
 
         try:
-            get_video_info(payload)
+            utils.downloader.get_video_info(payload)
             self.fail("Should have raised an exception (yt-dlp error)")
         except Exception as e:
             # If yt-dlp tried to download "--version", it fails with exit code != 0
@@ -44,11 +59,12 @@ class TestSecurityDownloader(unittest.TestCase):
 
     def test_get_video_info_injection(self):
         """Test that passing a flag as URL is blocked by validation."""
+        import utils.downloader
         payload = "--help"
 
         # Should be blocked by URL validation now
         try:
-            get_video_info(payload)
+            utils.downloader.get_video_info(payload)
             self.fail("No exception raised for invalid URL/flag injection")
         except ValueError as e:
             self.assertIn("Security validation failed", str(e))
@@ -57,28 +73,31 @@ class TestSecurityDownloader(unittest.TestCase):
 
     def test_download_audio_injection(self):
         """Test that download_audio_only validation blocks flags."""
+        import utils.downloader
         payload = "--version"
         output_dir = "tests/temp"
 
         with self.assertRaises(ValueError) as cm:
-            download_audio_only(payload, output_dir)
+            utils.downloader.download_audio_only(payload, output_dir)
 
         self.assertIn("Security validation failed", str(cm.exception))
 
     def test_download_video_segment_injection(self):
         """Test that download_video_segment validation blocks flags."""
+        import utils.downloader
         payload = "--version"
         output_path = "tests/temp/segment.mp4"
         start = 0
         end = 10
 
         with self.assertRaises(ValueError) as cm:
-            download_video_segment(payload, start, end, output_path)
+            utils.downloader.download_video_segment(payload, start, end, output_path)
 
         self.assertIn("Security validation failed", str(cm.exception))
 
     def test_url_validation(self):
         """Test URL validation logic."""
+        import utils.downloader
         # Valid URLs
         valid_urls = [
             "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
@@ -91,7 +110,7 @@ class TestSecurityDownloader(unittest.TestCase):
                 # calling get_video_info triggers validation first.
                 # It might fail later with network error or yt-dlp error,
                 # but NOT Security validation failed.
-                get_video_info(url)
+                utils.downloader.get_video_info(url)
             except ValueError as e:
                 if "Security validation failed" in str(e):
                      self.fail(f"Valid URL failed validation: {url}")
@@ -111,7 +130,7 @@ class TestSecurityDownloader(unittest.TestCase):
 
         for url in invalid_urls:
             with self.assertRaises(ValueError) as cm:
-                get_video_info(url)
+                utils.downloader.get_video_info(url)
             self.assertIn("Security validation failed", str(cm.exception))
 
 if __name__ == '__main__':
