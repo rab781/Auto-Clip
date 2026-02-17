@@ -11,7 +11,9 @@ sys.path.append(str(Path(__file__).parent.parent))
 # or we can mock it if we don't want real requests at all (which we don't).
 # However, ai_logic imports requests.
 
-from utils import ai_logic
+import utils.ai_logic
+import importlib
+importlib.reload(utils.ai_logic)
 
 class TestAILogicSecurity(unittest.TestCase):
 
@@ -33,7 +35,7 @@ class TestAILogicSecurity(unittest.TestCase):
         video_info = {"duration": 100}
 
         # Call function
-        ai_logic.analyze_content_for_clips(transcription, video_info)
+        utils.ai_logic.analyze_content_for_clips(transcription, video_info)
 
         # Verify timeout argument
         args, kwargs = mock_post.call_args
@@ -58,7 +60,7 @@ class TestAILogicSecurity(unittest.TestCase):
         transcript_segment = "segment text"
 
         # Call function
-        ai_logic.generate_clip_caption(clip_info, transcript_segment)
+        utils.ai_logic.generate_clip_caption(clip_info, transcript_segment)
 
         # Verify timeout argument
         args, kwargs = mock_post.call_args

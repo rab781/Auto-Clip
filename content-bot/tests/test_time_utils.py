@@ -3,17 +3,6 @@ import sys
 from unittest.mock import MagicMock
 from pathlib import Path
 
-# Mock problematic submodules of utils to avoid side effects during import
-# This prevents utils/__init__.py from importing the actual modules
-sys.modules['utils.ai_logic'] = MagicMock()
-sys.modules['utils.downloader'] = MagicMock()
-sys.modules['utils.processor'] = MagicMock()
-
-# Also mock external dependencies just in case
-sys.modules['requests'] = MagicMock()
-sys.modules['dotenv'] = MagicMock()
-sys.modules['config'] = MagicMock()
-
 # Add project root to path so we can import modules
 sys.path.append(str(Path(__file__).parent.parent))
 

@@ -4,26 +4,39 @@ import sys
 import os
 from pathlib import Path
 
-# Mock dependencies before import
-sys.modules['yt_dlp'] = MagicMock()
-sys.modules['requests'] = MagicMock()
-sys.modules['dotenv'] = MagicMock()
-sys.modules['cv2'] = MagicMock()
-sys.modules['mediapipe'] = MagicMock()
-sys.modules['numpy'] = MagicMock()
-
 # Add project root to path
 # We need to add content-bot directory to sys.path
 script_dir = Path(__file__).parent
 project_root = script_dir.parent
 sys.path.append(str(project_root))
 
-from utils.downloader import download_audio_only
-
 class TestDownloaderMock(unittest.TestCase):
+
+    def setUp(self):
+        self.modules_patcher = patch.dict(sys.modules, {
+            'yt_dlp': MagicMock(),
+            'yt_dlp.utils': MagicMock(),
+            'requests': MagicMock(),
+            'dotenv': MagicMock(),
+            'cv2': MagicMock(),
+            'mediapipe': MagicMock(),
+            'numpy': MagicMock()
+        })
+        self.modules_patcher.start()
+
+        # Ensure utils.downloader is imported/reloaded with mocks
+        if 'utils.downloader' in sys.modules:
+            import importlib
+            importlib.reload(sys.modules['utils.downloader'])
+        else:
+            import utils.downloader
+
+    def tearDown(self):
+        self.modules_patcher.stop()
 
     @patch('utils.downloader.yt_dlp.YoutubeDL')
     def test_download_audio_only_success(self, mock_ydl_class):
+        import utils.downloader
         # Setup mock
         mock_ydl = MagicMock()
         mock_ydl_class.return_value.__enter__.return_value = mock_ydl
@@ -38,7 +51,7 @@ class TestDownloaderMock(unittest.TestCase):
         url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
         output_dir = "tests/temp_mock"
 
-        result = download_audio_only(url, output_dir)
+        result = utils.downloader.download_audio_only(url, output_dir)
 
         # Verify
         self.assertEqual(result, '/tmp/output/test.mp3')
@@ -57,6 +70,7 @@ class TestDownloaderMock(unittest.TestCase):
 
     @patch('utils.downloader.yt_dlp.YoutubeDL')
     def test_download_audio_only_fallback(self, mock_ydl_class):
+        import utils.downloader
         # Setup mock for fallback case (requested_downloads missing)
         mock_ydl = MagicMock()
         mock_ydl_class.return_value.__enter__.return_value = mock_ydl
@@ -71,7 +85,7 @@ class TestDownloaderMock(unittest.TestCase):
         url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
         output_dir = "tests/temp_mock"
 
-        result = download_audio_only(url, output_dir)
+        result = utils.downloader.download_audio_only(url, output_dir)
 
         # Verify fallback logic (replacing extension with .mp3)
         expected = str(Path('tests/temp_mock/Test Video.mp3'))

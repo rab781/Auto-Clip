@@ -3,24 +3,37 @@ from unittest.mock import patch, MagicMock
 import sys
 from pathlib import Path
 
-# Mock missing dependencies
-sys.modules['requests'] = MagicMock()
-sys.modules['yt_dlp'] = MagicMock()
-sys.modules['cv2'] = MagicMock()
-sys.modules['mediapipe'] = MagicMock()
-sys.modules['numpy'] = MagicMock()
-sys.modules['dotenv'] = MagicMock()
-
 # Add project root to path
 sys.path.append(str(Path(__file__).parent.parent))
 
-# Now import the module to test
-from utils.processor import burn_captions
+import importlib
 
 class TestProcessorSecurity(unittest.TestCase):
 
-    @patch('subprocess.run')
+    def setUp(self):
+        self.modules_patcher = patch.dict(sys.modules, {
+            'yt_dlp': MagicMock(),
+            'yt_dlp.utils': MagicMock(),
+            'requests': MagicMock(),
+            'dotenv': MagicMock(),
+            'cv2': MagicMock(),
+            'mediapipe': MagicMock(),
+            'numpy': MagicMock()
+        })
+        self.modules_patcher.start()
+
+        # Reload utils.processor
+        if 'utils.processor' in sys.modules:
+            importlib.reload(sys.modules['utils.processor'])
+        else:
+            import utils.processor
+
+    def tearDown(self):
+        self.modules_patcher.stop()
+
+    @patch('utils.processor.subprocess.run')
     def test_burn_captions_escaping(self, mock_run):
+        import utils.processor
         """
         Test that burn_captions correctly escapes single quotes in the srt path
         when constructing the ffmpeg filter string.
@@ -36,7 +49,7 @@ class TestProcessorSecurity(unittest.TestCase):
         output_path = "output.mp4"
 
         # Call the function
-        burn_captions(video_path, srt_path, output_path)
+        utils.processor.burn_captions(video_path, srt_path, output_path)
 
         # Check the arguments passed to ffmpeg
         args, _ = mock_run.call_args
