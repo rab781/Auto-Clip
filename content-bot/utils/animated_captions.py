@@ -5,6 +5,13 @@ dengan animasi word-by-word (Karaoke/Highlight style) ala CapCut/TikTok.
 """
 from utils.time_utils import format_timestamp
 
+def sanitize_ass_text(text: str) -> str:
+    """
+    Sanitize text for ASS format by replacing special characters
+    with full-width equivalents to prevent tag injection.
+    """
+    return text.replace("{", "｛").replace("}", "｝").replace("\\", "＼")
+
 def generate_animated_ass(segments: list, output_path: str, settings: dict) -> str:
     """
     Generate ASS file with word-level highlighting.
@@ -82,11 +89,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 # Construct text with highlight tags
                 formatted_text = ""
                 for j, w in enumerate(batch_words):
+                    w_sanitized = sanitize_ass_text(w)
                     if j == i:
                         # Active word: Highlight color + scale up for pop effect
-                        formatted_text += f"{{\\c{highlight_color}\\fscx120\\fscy120}}{w}{{\\c{primary_color}\\fscx100\\fscy100}} "
+                        formatted_text += f"{{\\c{highlight_color}\\fscx120\\fscy120}}{w_sanitized}{{\\c{primary_color}\\fscx100\\fscy100}} "
                     else:
-                        formatted_text += f"{w} "
+                        formatted_text += f"{w_sanitized} "
                 
                 formatted_text = formatted_text.strip()
                 
