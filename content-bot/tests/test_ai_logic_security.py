@@ -6,11 +6,12 @@ from pathlib import Path
 # Add project root to path
 sys.path.append(str(Path(__file__).parent.parent))
 
-# Import module under test
-# We don't mock sys.modules['requests'] here because we want to patch it specifically
-# or we can mock it if we don't want real requests at all (which we don't).
-# However, ai_logic imports requests.
+# Mock dependencies before importing utils
+sys.modules['yt_dlp'] = MagicMock()
+sys.modules['yt_dlp.utils'] = MagicMock()
+sys.modules['requests'] = MagicMock()
 
+# Import module under test
 from utils import ai_logic
 
 class TestAILogicSecurity(unittest.TestCase):
