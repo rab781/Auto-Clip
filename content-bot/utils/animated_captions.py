@@ -51,7 +51,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     for seg in segments:
         seg_start = seg["start"]
         seg_end = seg["end"]
-        text = seg["text"].strip()
+        # Sanitize text to prevent ASS injection
+        # Replace '{', '}', '\' with full-width equivalents
+        text = seg["text"].strip().replace("{", "｛").replace("}", "｝").replace("\\", "＼")
         words = text.split()
         
         if not words:
