@@ -8,6 +8,7 @@ from pathlib import Path
 sys.modules['yt_dlp'] = MagicMock()
 sys.modules['requests'] = MagicMock()
 sys.modules['dotenv'] = MagicMock()
+sys.modules['yt_dlp.utils'] = MagicMock()
 sys.modules['cv2'] = MagicMock()
 sys.modules['mediapipe'] = MagicMock()
 sys.modules['numpy'] = MagicMock()

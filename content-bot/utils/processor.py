@@ -30,27 +30,12 @@ except ImportError:
     FACE_TRACKER_AVAILABLE = False
 
 
-def convert_to_vertical(video_path: str, output_path: str) -> str:
+def _get_smart_crop_x(video_path: str, width: int, height: int) -> str:
     """
-    Convert video ke aspect ratio 9:16 (vertical/portrait)
-    Menggunakan Smart Crop (Face Detection) jika memungkinkan,
-    fallback ke Center Crop.
-    
-    Args:
-        video_path: Path ke video input
-        output_path: Path untuk output
-        
-    Returns:
-        Path ke video vertical
+    Determine the X position for cropping (Smart Crop logic).
+    Returns the crop expression string for FFmpeg.
     """
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    width = VIDEO_SETTINGS["output_width"]
-    height = VIDEO_SETTINGS["output_height"]
-    
     # Default: Center Crop
-    # Scale height to target, then crop width from center
     crop_x = "(in_w-out_w)/2"  # Center
     
     # Try Smart Crop
@@ -62,25 +47,78 @@ def convert_to_vertical(video_path: str, output_path: str) -> str:
             tracker.close()
             
             if avg_x is not None:
-                # Calculate pixel position for crop (centered on face)
-                # Note: 'scale=-1:{height}' means width is scaled proportionally.
-                # We need to know the scaled width to calculate crop x.
-                # But FFmpeg filter evaluation is tricky.
-                # Simplified approach:
-                # Assume horizontal video (16:9), target (9:16).
-                # Face X (0.0-1.0) is relative to the SCALED width.
-                
-                # FFmpeg command: scale=-1:1920,crop=1080:1920:x:0
-                # We need to determine 'x' relative to the scaled width.
-                # Expression: (in_w*AVG_X) - (out_w/2)
-                # Clamped to [0, in_w-out_w]
-                
                 print(f"   [FACE] Face detected at X={avg_x:.2f}. Applying Smart Crop.")
                 crop_x = f"(in_w*{avg_x})-(out_w/2)"
             else:
                 print("   [FACE] No face detected. Defaulting to Center Crop.")
         except Exception as e:
             print(f"! Smart Crop failed ({e}). Defaulting to Center Crop.")
+
+    return crop_x
+
+
+def _get_subtitle_filter_string(srt_path: str) -> str:
+    """
+    Generate FFmpeg filter string for burning subtitles.
+    Handles escaping and ASS vs SRT logic.
+    """
+    # Escape path for FFmpeg (Windows needs special handling)
+    # Also escape single quotes for filter string syntax
+    srt_escaped = str(srt_path).replace("\\", "/").replace(":", "\\:").replace("'", r"'\''")
+
+    # Check if ASS (Animated) or SRT (Simple)
+    is_ass = str(srt_path).lower().endswith(".ass")
+
+    if is_ass:
+        return f"subtitles='{srt_escaped}'"
+    else:
+        # SRT requires force_style for customization
+        font = CAPTION_SETTINGS["font"]
+        font_size = CAPTION_SETTINGS["font_size"]
+        outline_width = CAPTION_SETTINGS["outline_width"]
+        margin_bottom = CAPTION_SETTINGS.get("margin_bottom", 50)
+        shadow_depth = CAPTION_SETTINGS.get("shadow_depth", 1)
+
+        # Position: bottom, word-level subtitle style
+        return (
+            f"subtitles='{srt_escaped}':"
+            f"force_style='FontName={font},"
+            f"FontSize={font_size},"
+            f"PrimaryColour=&H00FFFFFF,"  # White
+            f"OutlineColour=&H00000000,"  # Black outline
+            f"BackColour=&H80000000,"  # Semi-transparent black background
+            f"Outline={outline_width},"
+            f"Shadow={shadow_depth},"
+            f"Alignment=2,"  # Center bottom
+            f"MarginV={margin_bottom}'"
+        )
+
+
+def _get_audio_mix_filter(duration: float, bgm_volume: float, original_volume: float) -> str:
+    """
+    Generate FFmpeg filter string for mixing BGM with original audio.
+    Assumes [1:a] is BGM and [0:a] is original.
+    """
+    return (
+        f"[1:a]volume={bgm_volume},aloop=loop=-1:size={int(duration*48000)}[bgm];"
+        f"[0:a]volume={original_volume}[original];"
+        f"[original][bgm]amix=inputs=2:duration=first[aout]"
+    )
+
+
+def convert_to_vertical(video_path: str, output_path: str) -> str:
+    """
+    Convert video ke aspect ratio 9:16 (vertical/portrait)
+    Menggunakan Smart Crop (Face Detection) jika memungkinkan,
+    fallback ke Center Crop.
+    """
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    width = VIDEO_SETTINGS["output_width"]
+    height = VIDEO_SETTINGS["output_height"]
+
+    crop_x = _get_smart_crop_x(video_path, width, height)
 
     # FFmpeg filter: Scale -> Crop
     filter_complex = (
@@ -113,15 +151,6 @@ def convert_to_vertical(video_path: str, output_path: str) -> str:
 def generate_srt_from_segments(segments: list, output_path: str, words_per_line: int = 3) -> str:
     """
     Generate SRT file dari Whisper segments dengan word-level timing.
-    Setiap entry menampilkan 2-3 kata untuk efek subtitle TikTok/Shorts.
-    
-    Args:
-        segments: List of segments dari Whisper
-        output_path: Path untuk SRT output
-        words_per_line: Jumlah kata per subtitle entry (default: 3)
-        
-    Returns:
-        Path ke SRT file
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -180,49 +209,11 @@ def generate_srt_from_segments(segments: list, output_path: str, words_per_line:
 def burn_captions(video_path: str, srt_path: str, output_path: str) -> str:
     """
     Burn captions (hardsub) ke video menggunakan FFmpeg
-    
-    Args:
-        video_path: Path ke video input
-        srt_path: Path ke SRT file
-        output_path: Path untuk output
-        
-    Returns:
-        Path ke video dengan captions
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
-    # Escape path untuk FFmpeg (Windows needs special handling)
-    # Also escape single quotes for filter string syntax
-    srt_escaped = str(srt_path).replace("\\", "/").replace(":", "\\:").replace("'", r"'\''")
-    
-    # Check if ASS (Animated) or SRT (Simple)
-    is_ass = str(srt_path).lower().endswith(".ass")
-    
-    if is_ass:
-        # ASS file already has styles embedded
-        subtitle_filter = f"subtitles='{srt_escaped}'"
-    else:
-        # SRT requires force_style for customization
-        font = CAPTION_SETTINGS["font"]
-        font_size = CAPTION_SETTINGS["font_size"]
-        outline_width = CAPTION_SETTINGS["outline_width"]
-        margin_bottom = CAPTION_SETTINGS.get("margin_bottom", 50)
-        shadow_depth = CAPTION_SETTINGS.get("shadow_depth", 1)
-        
-        # Position: bottom bawah, word-level subtitle style
-        subtitle_filter = (
-            f"subtitles='{srt_escaped}':"
-            f"force_style='FontName={font},"
-            f"FontSize={font_size},"
-            f"PrimaryColour=&H00FFFFFF,"  # White
-            f"OutlineColour=&H00000000,"  # Black outline
-            f"BackColour=&H80000000,"  # Semi-transparent black background
-            f"Outline={outline_width},"
-            f"Shadow={shadow_depth},"
-            f"Alignment=2,"  # Center bottom
-            f"MarginV={margin_bottom}'"
-        )
+    subtitle_filter = _get_subtitle_filter_string(srt_path)
     
     cmd = [
         "ffmpeg", "-y",
@@ -242,6 +233,8 @@ def burn_captions(video_path: str, srt_path: str, output_path: str) -> str:
     if result.returncode != 0:
         # Fallback: tanpa subtitle styling yang kompleks
         print("! Trying simpler subtitle format...")
+        # Escape path for simple usage
+        srt_escaped = str(srt_path).replace("\\", "/").replace(":", "\\:").replace("'", r"'\''")
         cmd = [
             "ffmpeg", "-y",
             "-i", str(video_path),
@@ -262,15 +255,6 @@ def add_background_music(video_path: str, bgm_path: str, output_path: str,
                          bgm_volume: float = None) -> str:
     """
     Mix background music dengan audio original video
-    
-    Args:
-        video_path: Path ke video input
-        bgm_path: Path ke file BGM (mp3/wav)
-        output_path: Path untuk output
-        bgm_volume: Volume BGM (0.0 - 1.0), default dari config
-        
-    Returns:
-        Path ke video dengan BGM
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -283,12 +267,7 @@ def add_background_music(video_path: str, bgm_path: str, output_path: str,
     # Get video duration
     duration = _get_video_duration(video_path)
     
-    # Filter: mix original audio dengan BGM
-    filter_complex = (
-        f"[1:a]volume={bgm_volume},aloop=loop=-1:size={int(duration*48000)}[bgm];"
-        f"[0:a]volume={original_volume}[original];"
-        f"[original][bgm]amix=inputs=2:duration=first[aout]"
-    )
+    filter_complex = _get_audio_mix_filter(duration, bgm_volume, original_volume)
     
     cmd = [
         "ffmpeg", "-y",
@@ -315,14 +294,6 @@ def add_background_music(video_path: str, bgm_path: str, output_path: str,
 def generate_thumbnail(video_path: str, output_path: str, timestamp: float = None) -> str:
     """
     Generate thumbnail dari video
-    
-    Args:
-        video_path: Path ke video
-        output_path: Path untuk thumbnail (jpg/png)
-        timestamp: Waktu untuk capture (default: 1/3 durasi)
-        
-    Returns:
-        Path ke thumbnail
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -353,12 +324,6 @@ def generate_thumbnail(video_path: str, output_path: str, timestamp: float = Non
 def select_bgm_by_mood(mood: str) -> str:
     """
     Select BGM file based on mood
-    
-    Args:
-        mood: Mood dari LLM analysis (energetic, emotional, funny, dramatic, chill)
-        
-    Returns:
-        Path ke BGM file, atau None jika tidak ada
     """
     bgm_dir = Path(BGM_DIR)
     
@@ -392,6 +357,97 @@ def select_bgm_by_mood(mood: str) -> str:
     selected = random.choice(all_bgm)
     print(f"[MUSIC] Random BGM selected: {selected.name}")
     return str(selected)
+
+
+def _create_final_clip_optimized(
+    video_path: str,
+    srt_path: str,
+    bgm_path: str,
+    output_path: str,
+    bgm_volume: float = None,
+    original_volume: float = None
+) -> str:
+    """
+    Optimized single-pass FFmpeg pipeline: Crop -> Caption -> BGM
+
+    Performance Improvement:
+    Combines 3 separate FFmpeg passes (vertical conversion, burning captions, mixing audio)
+    into a single complex filter graph. This eliminates 2 intermediate re-encoding steps,
+    significantly reducing processing time and disk I/O.
+    """
+    if bgm_volume is None:
+        bgm_volume = AUDIO_SETTINGS["bgm_volume"]
+    if original_volume is None:
+        original_volume = AUDIO_SETTINGS["original_audio_volume"]
+
+    width = VIDEO_SETTINGS["output_width"]
+    height = VIDEO_SETTINGS["output_height"]
+
+    # 1. Get Crop Parameter
+    crop_x = _get_smart_crop_x(video_path, width, height)
+
+    # 2. Build Filter Complex
+    # [0:v] -> scale -> crop -> [v_crop]
+    # [v_crop] -> subtitles -> [v_out]
+
+    filters = [
+        f"[0:v]scale=-1:{height},crop={width}:{height}:{crop_x}:0[v_crop]"
+    ]
+
+    subtitle_filter_str = ""
+    if srt_path and Path(srt_path).exists():
+         sub_str = _get_subtitle_filter_string(srt_path)
+         # Remove "subtitles='path'..." wrapper to use in filter chain correctly?
+         # No, wait. subtitle_filter string is "subtitles='path':options"
+         # So we can use it directly: [v_crop]subtitles='path'[v_out]
+         # But we need to prepend inputs and append output label
+         # Wait, filter string from _get_subtitle_filter_string is fully formed "subtitles=..."
+         # So: f"[v_crop]{sub_str}[v_out]"
+         filters.append(f"[v_crop]{sub_str}[v_out]")
+         final_video_map = "[v_out]"
+    else:
+         # No subtitles, just pass through v_crop as v_out
+         final_video_map = "[v_crop]"
+
+    # 3. Audio Mixing
+    inputs = ["-i", str(video_path)]
+    final_audio_map = "0:a" # Default if no BGM
+
+    if bgm_path and Path(bgm_path).exists():
+        inputs.extend(["-i", str(bgm_path)])
+        duration = _get_video_duration(video_path)
+        audio_filter = _get_audio_mix_filter(duration, bgm_volume, original_volume)
+        # Append audio filter to filters list
+        # Note: audio filter uses [1:a] and [0:a] and outputs [aout]
+        filters.append(audio_filter)
+        final_audio_map = "[aout]"
+
+    filter_complex = ";".join(filters)
+
+    cmd = [
+        "ffmpeg", "-y",
+        *inputs,
+        "-filter_complex", filter_complex,
+        "-map", final_video_map,
+        "-map", final_audio_map,
+        "-c:v", "libx264",
+        "-crf", "18",
+        "-preset", "slow",
+        "-pix_fmt", "yuv420p",
+        # "-c:a", "aac", # Re-encode audio (implicit with amix usually, but good to specify if needed)
+        # But wait, original code used -c:a copy when not mixing.
+        # With amix, we must re-encode audio. Default is aac.
+        str(output_path)
+    ]
+
+    print(f"[OPTIMIZED] Processing clip in single pass...")
+    result = subprocess.run(cmd, capture_output=True, text=True)
+
+    if result.returncode != 0:
+        raise Exception(f"FFmpeg error: {result.stderr}")
+
+    print(f"[DONE] Optimized clip created: {output_path}")
+    return str(output_path)
 
 
 def create_final_clip(
@@ -435,11 +491,7 @@ def create_final_clip(
     print(f"[ACTION] Processing Clip #{clip_number}: {clip_info.get('caption_title', 'Unknown')}")
     print(f"{'='*50}")
     
-    # Step 1: Convert to vertical
-    vertical_path = temp_dir / f"{base_name}_vertical.mp4"
-    vertical_video = convert_to_vertical(video_segment_path, str(vertical_path))
-    
-    # Step 2: Generate Captions (SRT or ASS)
+    # Step 1: Generate Captions (SRT or ASS) - NEEDED FOR BOTH PIPELINES
     caption_style = CAPTION_SETTINGS.get("style", "simple")
     subtitle_path = None
     
@@ -453,30 +505,48 @@ def create_final_clip(
             words_per_line = CAPTION_SETTINGS.get("words_per_line", 3)
             generate_srt_from_segments(segments, str(subtitle_path), words_per_line=words_per_line)
     
-    # Step 3: Burn captions (if subtitle exists)
-    if subtitle_path and subtitle_path.exists():
-        captioned_path = temp_dir / f"{base_name}_captioned.mp4"
-        captioned_video = burn_captions(vertical_video, str(subtitle_path), str(captioned_path))
-    else:
-        captioned_video = vertical_video
-    
-    # Step 4: Add BGM
+    # Step 2: Select BGM - NEEDED FOR BOTH PIPELINES
     mood = clip_info.get("mood", "chill")
     bgm_path = select_bgm_by_mood(mood)
     
     final_video_path = output_dir / f"{base_name}.mp4"
-    if bgm_path:
-        final_video = add_background_music(captioned_video, bgm_path, str(final_video_path))
-    else:
-        # Copy without BGM
-        import shutil
-        shutil.copy(captioned_video, final_video_path)
-        final_video = str(final_video_path)
-        print("! No BGM added (no matching file found)")
     
-    # Step 5: Generate thumbnail
+    # TRY OPTIMIZED PIPELINE
+    try:
+        _create_final_clip_optimized(
+            video_path=video_segment_path,
+            srt_path=str(subtitle_path) if subtitle_path else None,
+            bgm_path=bgm_path,
+            output_path=str(final_video_path)
+        )
+    except Exception as e:
+        print(f"\n! Optimized pipeline failed: {e}")
+        print("! Fallback to sequential processing...")
+
+        # FALLBACK: SEQUENTIAL PROCESSING
+
+        # Step 1: Convert to vertical
+        vertical_path = temp_dir / f"{base_name}_vertical.mp4"
+        vertical_video = convert_to_vertical(video_segment_path, str(vertical_path))
+
+        # Step 2: Burn captions (if subtitle exists)
+        if subtitle_path and subtitle_path.exists():
+            captioned_path = temp_dir / f"{base_name}_captioned.mp4"
+            captioned_video = burn_captions(vertical_video, str(subtitle_path), str(captioned_path))
+        else:
+            captioned_video = vertical_video
+
+        # Step 3: Add BGM
+        if bgm_path:
+            add_background_music(captioned_video, bgm_path, str(final_video_path))
+        else:
+            import shutil
+            shutil.copy(captioned_video, final_video_path)
+            print("! No BGM added (no matching file found)")
+
+    # Step 5: Generate thumbnail (Step 4 was inside pipeline)
     thumbnail_path = output_dir / f"{base_name}_thumbnail.jpg"
-    thumbnail = generate_thumbnail(final_video, str(thumbnail_path))
+    thumbnail = generate_thumbnail(str(final_video_path), str(thumbnail_path))
     
     # Step 6: Save caption to text file
     caption_path = output_dir / f"{base_name}_caption.txt"
