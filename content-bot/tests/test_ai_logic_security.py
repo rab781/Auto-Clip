@@ -6,6 +6,15 @@ from pathlib import Path
 # Add project root to path
 sys.path.append(str(Path(__file__).parent.parent))
 
+# Mock dependencies before import
+sys.modules['requests'] = MagicMock()
+sys.modules['yt_dlp'] = MagicMock()
+sys.modules['yt_dlp.utils'] = MagicMock()
+sys.modules['cv2'] = MagicMock()
+sys.modules['mediapipe'] = MagicMock()
+sys.modules['numpy'] = MagicMock()
+sys.modules['dotenv'] = MagicMock()
+
 # Import module under test
 # We don't mock sys.modules['requests'] here because we want to patch it specifically
 # or we can mock it if we don't want real requests at all (which we don't).
