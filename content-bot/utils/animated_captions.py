@@ -52,6 +52,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         seg_start = seg["start"]
         seg_end = seg["end"]
         text = seg["text"].strip()
+
+        # Sanitize text to prevent ASS injection (replace { } \ with full-width equivalents)
+        text = text.replace("{", "｛").replace("}", "｝").replace("\\", "＼")
+
         words = text.split()
         
         if not words:
