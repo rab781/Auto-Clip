@@ -6,6 +6,7 @@ from pathlib import Path
 
 # Mock dependencies before import
 sys.modules['yt_dlp'] = MagicMock()
+sys.modules['yt_dlp.utils'] = MagicMock()
 sys.modules['requests'] = MagicMock()
 sys.modules['dotenv'] = MagicMock()
 sys.modules['cv2'] = MagicMock()
