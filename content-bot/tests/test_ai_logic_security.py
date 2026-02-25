@@ -3,6 +3,16 @@ from unittest.mock import patch, MagicMock
 import sys
 from pathlib import Path
 
+# Mock dependencies before importing
+sys.modules['yt_dlp'] = MagicMock()
+sys.modules['yt_dlp.utils'] = MagicMock()
+sys.modules['cv2'] = MagicMock()
+sys.modules['mediapipe'] = MagicMock()
+sys.modules['numpy'] = MagicMock()
+sys.modules['dotenv'] = MagicMock()
+# Explicitly mock requests at sys.modules level to handle imports in ai_logic.py
+sys.modules['requests'] = MagicMock()
+
 # Add project root to path
 sys.path.append(str(Path(__file__).parent.parent))
 
