@@ -6,6 +6,7 @@ from pathlib import Path
 # Mock missing dependencies
 sys.modules['requests'] = MagicMock()
 sys.modules['yt_dlp'] = MagicMock()
+sys.modules['yt_dlp.utils'] = MagicMock()  # Mock submodule
 sys.modules['cv2'] = MagicMock()
 sys.modules['mediapipe'] = MagicMock()
 sys.modules['numpy'] = MagicMock()

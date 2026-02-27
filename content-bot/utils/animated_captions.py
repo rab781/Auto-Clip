@@ -5,6 +5,24 @@ dengan animasi word-by-word (Karaoke/Highlight style) ala CapCut/TikTok.
 """
 from utils.time_utils import format_timestamp
 
+def sanitize_ass_text(text: str) -> str:
+    """
+    Sanitize text to prevent ASS tag injection.
+    Replaces special characters with full-width equivalents to maintain readability
+    without triggering ASS parsing.
+
+    Args:
+        text: Input text
+
+    Returns:
+        Sanitized text safe for ASS file
+    """
+    # Replace ASS control characters with full-width equivalents
+    # { -> ｛ (U+FF5B)
+    # } -> ｝ (U+FF5D)
+    # \ -> ＼ (U+FF3C)
+    return text.replace("{", "｛").replace("}", "｝").replace("\\", "＼")
+
 def generate_animated_ass(segments: list, output_path: str, settings: dict) -> str:
     """
     Generate ASS file with word-level highlighting.
@@ -52,6 +70,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         seg_start = seg["start"]
         seg_end = seg["end"]
         text = seg["text"].strip()
+        # Sanitize text before processing
+        text = sanitize_ass_text(text)
         words = text.split()
         
         if not words:
