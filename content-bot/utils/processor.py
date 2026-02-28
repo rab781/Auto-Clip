@@ -90,14 +90,14 @@ def convert_to_vertical(video_path: str, output_path: str) -> str:
     
     cmd = [
         "ffmpeg", "-y",
-        "-i", str(video_path),
+        "-i", f"file:{str(video_path)}",
         "-vf", filter_complex,
         "-c:a", "copy",
         "-c:v", "libx264",
         "-crf", "18",       # High quality (visually lossless)
         "-preset", "slow",   # Better compression efficiency
         "-pix_fmt", "yuv420p",
-        str(output_path)
+        f"file:{str(output_path)}"
     ]
     
     print(f"[CROP] Converting to vertical (9:16)...")
@@ -226,14 +226,14 @@ def burn_captions(video_path: str, srt_path: str, output_path: str) -> str:
     
     cmd = [
         "ffmpeg", "-y",
-        "-i", str(video_path),
+        "-i", f"file:{str(video_path)}",
         "-vf", subtitle_filter,
         "-c:a", "copy",
         "-c:v", "libx264",
         "-crf", "18",       # High quality (visually lossless)
         "-preset", "slow",   # Better compression efficiency
         "-pix_fmt", "yuv420p",
-        str(output_path)
+        f"file:{str(output_path)}"
     ]
     
     print(f"[SUB] Burning captions to video...")
@@ -244,10 +244,10 @@ def burn_captions(video_path: str, srt_path: str, output_path: str) -> str:
         print("! Trying simpler subtitle format...")
         cmd = [
             "ffmpeg", "-y",
-            "-i", str(video_path),
+            "-i", f"file:{str(video_path)}",
             "-vf", f"subtitles='{srt_escaped}'",
             "-c:a", "copy",
-            str(output_path)
+            f"file:{str(output_path)}"
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         
@@ -292,14 +292,14 @@ def add_background_music(video_path: str, bgm_path: str, output_path: str,
     
     cmd = [
         "ffmpeg", "-y",
-        "-i", str(video_path),
-        "-i", str(bgm_path),
+        "-i", f"file:{str(video_path)}",
+        "-i", f"file:{str(bgm_path)}",
         "-filter_complex", filter_complex,
         "-map", "0:v",
         "-map", "[aout]",
         "-c:v", "copy",
         "-shortest",
-        str(output_path)
+        f"file:{str(output_path)}"
     ]
     
     print(f"[MUSIC] Adding background music (volume: {bgm_volume*100:.0f}%)...")
@@ -334,10 +334,10 @@ def generate_thumbnail(video_path: str, output_path: str, timestamp: float = Non
     cmd = [
         "ffmpeg", "-y",
         "-ss", str(timestamp),
-        "-i", str(video_path),
+        "-i", f"file:{str(video_path)}",
         "-vframes", "1",
         "-q:v", "2",  # High quality
-        str(output_path)
+        f"file:{str(output_path)}"
     ]
     
     print(f"[THUMB] Generating thumbnail at {timestamp:.1f}s...")
@@ -523,7 +523,7 @@ def _get_video_duration(video_path: str) -> float:
         "-v", "error",
         "-show_entries", "format=duration",
         "-of", "default=noprint_wrappers=1:nokey=1",
-        str(video_path)
+        f"file:{str(video_path)}"
     ]
     
     result = subprocess.run(cmd, capture_output=True, text=True)
