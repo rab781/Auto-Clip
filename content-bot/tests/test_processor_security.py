@@ -6,6 +6,7 @@ from pathlib import Path
 # Mock missing dependencies
 sys.modules['requests'] = MagicMock()
 sys.modules['yt_dlp'] = MagicMock()
+sys.modules['yt_dlp.utils'] = MagicMock()
 sys.modules['cv2'] = MagicMock()
 sys.modules['mediapipe'] = MagicMock()
 sys.modules['numpy'] = MagicMock()
@@ -58,6 +59,15 @@ class TestProcessorSecurity(unittest.TestCase):
         # This means the string should contain the literal characters: ' \ ' ' (without spaces)
         if r"'\''" not in filter_arg:
             self.fail(f"Single quote was not escaped correctly in ffmpeg filter string: {filter_arg}")
+
+        # Check for file: prefix in filter arg
+        if "file:" not in filter_arg:
+            self.fail(f"File prefix missing from subtitles filter: {filter_arg}")
+
+        # Check that -i argument and output path have file: prefix
+        i_arg_idx = cmd.index("-i")
+        self.assertTrue(cmd[i_arg_idx + 1].startswith("file:"), f"-i arg missing file: prefix: {cmd[i_arg_idx + 1]}")
+        self.assertTrue(cmd[-1].startswith("file:"), f"Output path missing file: prefix: {cmd[-1]}")
 
 if __name__ == '__main__':
     unittest.main()

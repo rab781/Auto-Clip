@@ -197,7 +197,7 @@ def _get_audio_duration(audio_path: str) -> float:
         "-v", "error",
         "-show_entries", "format=duration",
         "-of", "default=noprint_wrappers=1:nokey=1",
-        str(audio_path)
+        f"file:{audio_path}"
     ]
     
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -216,11 +216,11 @@ def _extract_audio_chunk(audio_path: str, output_path: str, start: float, end: f
     cmd = [
         "ffmpeg", "-y",
         "-ss", str(start),
-        "-i", str(audio_path),
+        "-i", f"file:{audio_path}",
         "-t", str(duration),
         "-acodec", "libmp3lame",
         "-q:a", "4",
-        str(output_path)
+        f"file:{output_path}"
     ]
     
     result = subprocess.run(cmd, capture_output=True, text=True)
