@@ -1,3 +1,7 @@
 ## 2025-02-18 - [Optimization] Skip Decoding in Video Loop
 **Learning:** In video processing loops where only a subset of frames (e.g., 1 in 10) are analyzed, using `cap.read()` decodes every single frame, causing significant CPU overhead. Replacing `cap.read()` with `cap.grab()` (which only reads the frame data without full decoding) for skipped frames, and using `cap.retrieve()` only for frames to be processed, results in measurable performance gains (e.g., ~27% speedup even on simple test video).
 **Action:** Always check `cv2.VideoCapture` loops for unnecessary decoding. If frames are skipped based on index or time, use `cap.grab()` and `continue` instead of `cap.read()`.
+
+## 2025-02-18 - [Optimization] Single-pass FFmpeg Pipeline
+**Learning:** Sequential FFmpeg operations (e.g., cropping, adding subtitles, adding background music) cause intermediate video re-encoding which incurs significant CPU and disk I/O overhead. By combining these steps into a single complex filter graph (`-filter_complex`), FFmpeg can perform all transformations in a single pass without intermediate files, drastically reducing processing time and storage usage.
+**Action:** When performing multiple video transformations in sequence with FFmpeg, always try to combine them into a single `-filter_complex` command. If the complex graph is too complex and prone to failure on edge cases, implement a fallback to the sequential approach.
