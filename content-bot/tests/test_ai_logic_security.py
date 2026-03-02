@@ -7,9 +7,10 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 # Import module under test
-# We don't mock sys.modules['requests'] here because we want to patch it specifically
-# or we can mock it if we don't want real requests at all (which we don't).
-# However, ai_logic imports requests.
+sys.modules['yt_dlp'] = MagicMock()
+sys.modules['yt_dlp.utils'] = MagicMock()
+sys.modules['requests'] = MagicMock()
+sys.modules['dotenv'] = MagicMock()
 
 from utils import ai_logic
 
