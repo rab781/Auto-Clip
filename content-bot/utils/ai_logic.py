@@ -12,8 +12,8 @@ import subprocess
 import sys
 import time
 import functools
-from pathlib import Path
-sys.path.append(str(Path(__file__).resolve().parent.parent))
+import concurrent.futures
+sys.path.append(str(__file__).rsplit('\\', 2)[0])
 
 from config import CHUTES_API_KEY, CHUTES_BASE_URL, WHISPER_MODEL, LLM_MODEL, VIDEO_SETTINGS
 
@@ -28,11 +28,11 @@ def validate_dependencies():
             if result.returncode != 0:
                 raise FileNotFoundError
         except (FileNotFoundError, subprocess.TimeoutExpired):
-            print(f"❌ FATAL: '{tool}' tidak ditemukan di PATH!")
+            print(f"[ERROR] FATAL: '{tool}' tidak ditemukan di PATH!")
             print(f"   Install FFmpeg: https://ffmpeg.org/download.html")
             print(f"   Pastikan '{tool}' ada di system PATH.")
             sys.exit(1)
-    print("✅ FFmpeg & ffprobe ready")
+    print("[OK] FFmpeg & ffprobe ready")
 
 
 def api_retry(max_retries: int = 3, base_delay: int = 5):
@@ -47,18 +47,18 @@ def api_retry(max_retries: int = 3, base_delay: int = 5):
                 except requests.exceptions.Timeout as e:
                     last_error = e
                     wait = base_delay * (2 ** attempt)
-                    print(f"   ⏰ Timeout (attempt {attempt+1}/{max_retries}), retry in {wait}s...")
+                    print(f"   [TIMEOUT] Timeout (attempt {attempt+1}/{max_retries}), retry in {wait}s...")
                     time.sleep(wait)
                 except requests.exceptions.ConnectionError as e:
                     last_error = e
                     wait = base_delay * (2 ** attempt)
-                    print(f"   🔌 Connection error (attempt {attempt+1}/{max_retries}), retry in {wait}s...")
+                    print(f"   [CONN] Connection error (attempt {attempt+1}/{max_retries}), retry in {wait}s...")
                     time.sleep(wait)
                 except Exception as e:
                     last_error = e
                     if attempt < max_retries - 1:
                         wait = base_delay * (attempt + 1)
-                        print(f"   ⚠️ Error: {str(e)[:80]} (attempt {attempt+1}/{max_retries}), retry in {wait}s...")
+                        print(f"   [WARN] Error: {str(e)[:80]} (attempt {attempt+1}/{max_retries}), retry in {wait}s...")
                         time.sleep(wait)
                     else:
                         raise
@@ -87,7 +87,7 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
     from pathlib import Path
     
     file_size_mb = os.path.getsize(audio_path) / (1024 * 1024)
-    print(f"🎤 Transcribing audio: {audio_path}")
+    print(f"[AI] Transcribing audio: {audio_path}")
     print(f"   File size: {file_size_mb:.1f} MB")
     
     # Get audio duration using ffprobe
@@ -97,12 +97,12 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
     # Determine if we need to split
     if duration <= chunk_duration:
         # Small file, process directly
-        print(f"   ✅ File kecil, proses langsung tanpa split")
+        print(f"   [OK] File kecil, proses langsung tanpa split")
         return _transcribe_chunk(audio_path, 0, max_retries)
     
     # Split audio into chunks
     num_chunks = int(duration // chunk_duration) + (1 if duration % chunk_duration > 0 else 0)
-    print(f"   📦 Splitting audio into {num_chunks} chunks ({chunk_duration}s each)...")
+    print(f"   [PKG] Splitting audio into {num_chunks} chunks ({chunk_duration}s each)...")
     
     temp_dir = Path(audio_path).parent / "temp_chunks"
     temp_dir.mkdir(exist_ok=True)
@@ -110,35 +110,69 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
     all_segments = []
     full_text = ""
     
+    # Prepare tasks
+    tasks = []
     for i in range(num_chunks):
         start_time = i * chunk_duration
         end_time = min((i + 1) * chunk_duration, duration)
-        
-        print(f"\n   📍 Chunk {i+1}/{num_chunks} [{start_time:.0f}s - {end_time:.0f}s]")
-        
-        # Extract chunk using ffmpeg
-        chunk_path = temp_dir / f"chunk_{i:03d}.mp3"
-        _extract_audio_chunk(audio_path, str(chunk_path), start_time, end_time)
-        
-        # Transcribe chunk
-        try:
-            result = _transcribe_chunk(str(chunk_path), start_time, max_retries)
-            
-            # Adjust timestamps and merge
-            if "segments" in result:
-                for seg in result["segments"]:
-                    seg["start"] += start_time
-                    seg["end"] += start_time
-                    all_segments.append(seg)
-            
-            full_text += " " + result.get("text", "")
-            
-            # Clean up chunk file
-            chunk_path.unlink(missing_ok=True)
-            
-        except Exception as e:
-            print(f"   ⚠️ Chunk {i+1} failed: {e}")
-            continue
+        tasks.append((i, start_time, end_time))
+
+    results = []
+    # Use ThreadPoolExecutor for parallel processing
+    # Limit max_workers to 3 to avoid hitting API rate limits or overwhelming the system
+    max_workers = min(3, num_chunks)
+    print(f"   ⚡ Parallel processing with {max_workers} threads...")
+
+    # Use a session for connection pooling across threads
+    with requests.Session() as session:
+        def process_chunk_task(task_args):
+            """Helper to process a single chunk in a thread."""
+            idx, start_ts, end_ts = task_args
+            chunk_file = temp_dir / f"chunk_{idx:03d}.mp3"
+            label = f"Chunk {idx+1}/{num_chunks}"
+
+            try:
+                print(f"\n   📍 Processing {label} [{start_ts:.0f}s - {end_ts:.0f}s]...")
+
+                # Extract chunk using ffmpeg
+                _extract_audio_chunk(audio_path, str(chunk_file), start_ts, end_ts)
+
+                # Transcribe chunk
+                # Note: _transcribe_chunk internally does retries
+                res = _transcribe_chunk(str(chunk_file), start_ts, max_retries, chunk_label=label, session=session)
+
+                # Clean up chunk file
+                chunk_file.unlink(missing_ok=True)
+                return (idx, start_ts, res)
+
+            except Exception as err:
+                print(f"   ⚠️ {label} failed: {err}")
+                chunk_file.unlink(missing_ok=True)
+                return (idx, start_ts, None)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_chunk = {executor.submit(process_chunk_task, t): t for t in tasks}
+
+            for future in concurrent.futures.as_completed(future_to_chunk):
+                try:
+                    idx, start_ts, res = future.result()
+                    if res:
+                        results.append((idx, start_ts, res))
+                except Exception as exc:
+                    print(f"   ❌ task generated an exception: {exc}")
+
+    # Sort results by index to maintain order
+    results.sort(key=lambda x: x[0])
+
+    # Merge results
+    for idx, start_ts, result in results:
+        if "segments" in result:
+            for seg in result["segments"]:
+                seg["start"] += start_ts
+                seg["end"] += start_ts
+                all_segments.append(seg)
+
+        full_text += " " + result.get("text", "")
     
     # Clean up temp directory
     try:
@@ -146,7 +180,7 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
     except:
         pass
     
-    print(f"\n✅ Transcription complete: {len(full_text)} characters, {len(all_segments)} segments")
+    print(f"\n[OK] Transcription complete: {len(full_text)} characters, {len(all_segments)} segments")
     
     return {
         "text": full_text.strip(),
@@ -194,7 +228,7 @@ def _extract_audio_chunk(audio_path: str, output_path: str, start: float, end: f
         raise Exception(f"FFmpeg error: {result.stderr[:200]}")
 
 
-def _transcribe_chunk(audio_path: str, time_offset: float, max_retries: int = 3) -> dict:
+def _transcribe_chunk(audio_path: str, time_offset: float, max_retries: int = 3, chunk_label: str = "", session=None) -> dict:
     """Transcribe a single audio chunk"""
     import os
     import time
@@ -217,11 +251,14 @@ def _transcribe_chunk(audio_path: str, time_offset: float, max_retries: int = 3)
     file_size_mb = os.path.getsize(audio_path) / (1024 * 1024)
     timeout = max(180, int(file_size_mb * 30) + 60)
     
+    prefix = f"      [{chunk_label}]" if chunk_label else "      "
+    requester = session if session else requests
+
     for attempt in range(max_retries):
         try:
-            print(f"      📤 Uploading chunk (attempt {attempt + 1}/{max_retries})...")
+            print(f"{prefix} 📤 Uploading (attempt {attempt + 1}/{max_retries})...")
             
-            response = requests.post(
+            response = requester.post(
                 "https://chutes-whisper-large-v3.chutes.ai/transcribe",
                 headers=headers,
                 json=body,
@@ -249,21 +286,21 @@ def _transcribe_chunk(audio_path: str, time_offset: float, max_retries: int = 3)
                     if "segments" not in result:
                         result["segments"] = [{"start": 0, "end": 60, "text": result.get("text", "")}]
                 
-                print(f"      ✅ Chunk transcribed: {len(result.get('text', ''))} chars")
+                print(f"      [OK] Chunk transcribed: {len(result.get('text', ''))} chars")
                 return result
             elif response.status_code == 504:
-                print(f"      ⏰ 504 Timeout on attempt {attempt + 1}")
+                print(f"      [TIMEOUT] 504 Timeout on attempt {attempt + 1}")
             else:
-                print(f"      ⚠️ API status {response.status_code}: {response.text[:100]}")
+                print(f"      [WARN] API status {response.status_code}: {response.text[:100]}")
                 
         except requests.exceptions.Timeout:
-            print(f"      ⏰ Request timeout on attempt {attempt + 1}")
+            print(f"      [TIMEOUT] Request timeout on attempt {attempt + 1}")
         except Exception as e:
-            print(f"      ❌ Error on attempt {attempt + 1}: {str(e)[:80]}")
+            print(f"      [ERROR] Error on attempt {attempt + 1}: {str(e)[:80]}")
         
         if attempt < max_retries - 1:
             wait_time = (attempt + 1) * 20
-            print(f"      ⏳ Waiting {wait_time}s before retry...")
+            print(f"      [WAIT] Waiting {wait_time}s before retry...")
             time.sleep(wait_time)
     
     raise Exception(f"Failed to transcribe chunk after {max_retries} attempts")
@@ -293,7 +330,7 @@ def translate_segments(segments: list, target_lang: str = "Indonesian") -> list:
     batch_size = 20  # Translate 20 segments at once
     total_batches = (len(segments) + batch_size - 1) // batch_size
     
-    print(f"🌐 Translating {len(segments)} segments to {target_lang} ({total_batches} batches)...")
+    print(f"[TRANS] Translating {len(segments)} segments to {target_lang} ({total_batches} batches)...")
     
     for batch_idx in range(0, len(segments), batch_size):
         batch = segments[batch_idx:batch_idx + batch_size]
@@ -332,7 +369,7 @@ PENTING:
         }
         
         try:
-            print(f"   📝 Batch {batch_num}/{total_batches}...")
+            print(f"   [NOTE] Batch {batch_num}/{total_batches}...")
             response = requests.post(
                 f"{CHUTES_BASE_URL}/chat/completions",
                 headers=headers,
@@ -364,16 +401,16 @@ PENTING:
                     translated.append(new_seg)
                 
                 translated_count = len(translations)
-                print(f"      ✅ {translated_count}/{len(batch)} segments translated")
+                print(f"      [OK] {translated_count}/{len(batch)} segments translated")
             else:
-                print(f"      ⚠️ Translation API error ({response.status_code}), using original text")
+                print(f"      [WARN] Translation API error ({response.status_code}), using original text")
                 translated.extend(batch)
                 
         except Exception as e:
-            print(f"      ❌ Translation error: {str(e)[:80]}, using original text")
+            print(f"      [ERROR] Translation error: {str(e)[:80]}, using original text")
             translated.extend(batch)
     
-    print(f"✅ Translation complete: {len(translated)} segments")
+    print(f"[OK] Translation complete: {len(translated)} segments")
     return translated
 
 
@@ -479,11 +516,12 @@ HANYA OUTPUT JSON, tanpa penjelasan tambahan."""
         "max_tokens": 2000,
     }
     
-    print("🧠 Analyzing content for viral clips...")
+    print("[AI] Analyzing content for viral clips...")
     response = requests.post(
         f"{CHUTES_BASE_URL}/chat/completions",
         headers=headers,
-        json=data
+        json=data,
+        timeout=120
     )
     
     if response.status_code != 200:
@@ -502,22 +540,22 @@ HANYA OUTPUT JSON, tanpa penjelasan tambahan."""
         if VIDEO_SETTINGS['min_clip_duration'] <= duration <= VIDEO_SETTINGS['max_clip_duration']:
             validated_clips.append(clip)
         elif duration < VIDEO_SETTINGS['min_clip_duration']:
-            print(f"⚠️ Clip terlalu pendek ({duration:.0f}s < {VIDEO_SETTINGS['min_clip_duration']}s): {clip.get('caption_title', 'unknown')}")
+            print(f"[WARN] Clip terlalu pendek ({duration:.0f}s < {VIDEO_SETTINGS['min_clip_duration']}s): {clip.get('caption_title', 'unknown')}")
         elif duration > VIDEO_SETTINGS['max_clip_duration']:
             # Split terlalu panjang? Tetap terima tapi warning
-            print(f"⚠️ Clip agak panjang ({duration:.0f}s), tetap diproses: {clip.get('caption_title', 'unknown')}")
+            print(f"[WARN] Clip agak panjang ({duration:.0f}s), tetap diproses: {clip.get('caption_title', 'unknown')}")
             validated_clips.append(clip)
     
     # Sort by start time
     validated_clips.sort(key=lambda x: x["start"])
     
-    print(f"✅ Found {len(validated_clips)} valid clips")
+    print(f"[OK] Found {len(validated_clips)} valid clips")
     for i, clip in enumerate(validated_clips, 1):
         duration = clip['end'] - clip['start']
         hook = clip.get('hook', '')[:60]
         print(f"   {i}. [{clip['start']:.0f}s-{clip['end']:.0f}s] ({duration:.0f}s) {clip.get('caption_title', '')}")
         if hook:
-            print(f"      🪝 Hook: \"{hook}...\"")
+            print(f"      [HOOK] Hook: \"{hook}...\"")
     return validated_clips
 
 
@@ -569,7 +607,8 @@ OUTPUT langsung caption-nya saja, tanpa label atau penjelasan."""
     response = requests.post(
         f"{CHUTES_BASE_URL}/chat/completions",
         headers=headers,
-        json=data
+        json=data,
+        timeout=60
     )
     
     if response.status_code != 200:
@@ -622,7 +661,7 @@ def _parse_clips_json(content: str) -> list:
             pass
     
     # Fallback: empty list
-    print("⚠️ Could not parse clips JSON, returning empty list")
+    print("[WARN] Could not parse clips JSON, returning empty list")
     return []
 
 
