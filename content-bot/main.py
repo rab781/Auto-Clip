@@ -12,6 +12,7 @@ import sys
 import shutil
 import argparse
 import concurrent.futures
+import bisect
 from pathlib import Path
 from tqdm import tqdm
 
@@ -46,8 +47,18 @@ def process_single_clip(i: int, clip: dict, url: str, transcription: dict) -> di
         # Extract relevant transcript segments for this clip
         clip_segments = []
         if "segments" in transcription:
-            for seg in transcription["segments"]:
-                if seg["start"] >= clip["start"] and seg["end"] <= clip["end"]:
+            segments = transcription["segments"]
+            # Optimization: Use binary search (O(log N)) instead of linear scan (O(N))
+            # Find the first segment that starts at or after the clip's start time
+            start_idx = bisect.bisect_left(segments, clip["start"], key=lambda x: x["start"])
+
+            for i in range(start_idx, len(segments)):
+                seg = segments[i]
+                # Since segments are sorted by start time, we can stop early if start exceeds clip end
+                if seg["start"] > clip["end"]:
+                    break
+
+                if seg["end"] <= clip["end"]:
                     clip_segments.append({
                         "start": seg["start"] - clip["start"],
                         "end": seg["end"] - clip["start"],
