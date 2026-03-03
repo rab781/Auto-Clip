@@ -1,7 +1,6 @@
 ## 2025-02-18 - [Optimization] Skip Decoding in Video Loop
 **Learning:** In video processing loops where only a subset of frames (e.g., 1 in 10) are analyzed, using `cap.read()` decodes every single frame, causing significant CPU overhead. Replacing `cap.read()` with `cap.grab()` (which only reads the frame data without full decoding) for skipped frames, and using `cap.retrieve()` only for frames to be processed, results in measurable performance gains (e.g., ~27% speedup even on simple test video).
 **Action:** Always check `cv2.VideoCapture` loops for unnecessary decoding. If frames are skipped based on index or time, use `cap.grab()` and `continue` instead of `cap.read()`.
-
-## 2025-02-23 - [Optimization] O(log N) Transcript Segment Extraction
-**Learning:** Sequential linear scans (`O(N)`) over long ordered lists (like Whisper transcription segments) inside a loop (like clip processing) become a hidden CPU bottleneck as `N` scales. The `bisect` module, especially using the `key` argument in Python 3.10+ (`bisect.bisect_left(list, val, key=lambda x: x['field'])`), easily converts this search into `O(log N)`.
-**Action:** When searching chronologically ordered data structures (timestamps, logs, video segments), bypass linear loops. Implement binary search with `bisect` combined with an early-exit loop.
+## 2024-05-23 - [Consolidated FFmpeg Processing]
+**Learning:** Combining multiple FFmpeg filters (scale, crop, subtitles, amix) into a single complex filter graph (`-filter_complex`) significantly reduces processing time by eliminating intermediate re-encodes and disk I/O. However, constructing these complex filters requires careful handling of input streams and mappings, especially when some inputs (like BGM) are optional.
+**Action:** When optimizing media pipelines, always look for opportunities to chain filters in a single pass. Ensure fallback mechanisms (like sequential processing) are in place, as complex filter graphs can be more fragile or environmentally dependent (e.g. font issues).
