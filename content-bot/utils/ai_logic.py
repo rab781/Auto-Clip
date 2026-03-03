@@ -521,7 +521,7 @@ HANYA OUTPUT JSON, tanpa penjelasan tambahan."""
         f"{CHUTES_BASE_URL}/chat/completions",
         headers=headers,
         json=data,
-        timeout=120  # Security: Timeout after 2m to prevent indefinite hang
+        timeout=120
     )
     
     if response.status_code != 200:
@@ -608,7 +608,7 @@ OUTPUT langsung caption-nya saja, tanpa label atau penjelasan."""
         f"{CHUTES_BASE_URL}/chat/completions",
         headers=headers,
         json=data,
-        timeout=60  # Security: Timeout after 60s
+        timeout=60
     )
     
     if response.status_code != 200:
@@ -620,9 +620,22 @@ OUTPUT langsung caption-nya saja, tanpa label atau penjelasan."""
 
 def _parse_clips_json(content: str) -> list:
     """Parse JSON from LLM response, handling various formats"""
+    def extract_from_data(data):
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            # Look for common keys where clips might be hidden
+            for key in ["clips", "segments", "data", "result"]:
+                if key in data and isinstance(data[key], list):
+                    return data[key]
+        return None
+
     # Try direct parse
     try:
-        return json.loads(content)
+        data = json.loads(content)
+        extracted = extract_from_data(data)
+        if extracted is not None:
+            return extracted
     except json.JSONDecodeError:
         pass
     
@@ -630,7 +643,20 @@ def _parse_clips_json(content: str) -> list:
     json_match = re.search(r'\[[\s\S]*\]', content)
     if json_match:
         try:
-            return json.loads(json_match.group())
+            data = json.loads(json_match.group())
+            if isinstance(data, list):
+                return data
+        except json.JSONDecodeError:
+            pass
+
+    # Try to extract JSON object from response
+    obj_match = re.search(r'\{[\s\S]*\}', content)
+    if obj_match:
+        try:
+            data = json.loads(obj_match.group())
+            extracted = extract_from_data(data)
+            if extracted is not None:
+                return extracted
         except json.JSONDecodeError:
             pass
     
