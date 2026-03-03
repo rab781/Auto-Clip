@@ -31,8 +31,60 @@ except ImportError:
     FACE_TRACKER_AVAILABLE = False
 
 
-def _get_crop_filter(video_path: str) -> str:
-    """Helper to determine crop/scale filter string"""
+def _get_subtitle_filter(srt_path: str) -> str:
+    """
+    Generate FFmpeg subtitle filter string with correct escaping and styling.
+    """
+    # Escape path for FFmpeg (Windows needs special handling)
+    # Also escape single quotes for filter string syntax
+    srt_escaped = str(srt_path).replace("\\", "/").replace(":", "\\:").replace("'", r"'\''")
+
+    # Check if ASS (Animated) or SRT (Simple)
+    is_ass = str(srt_path).lower().endswith(".ass")
+
+    if is_ass:
+        # ASS file already has styles embedded
+        return f"subtitles='{srt_escaped}'"
+    else:
+        # SRT requires force_style for customization
+        font = CAPTION_SETTINGS["font"]
+        font_size = CAPTION_SETTINGS["font_size"]
+        outline_width = CAPTION_SETTINGS["outline_width"]
+        margin_bottom = CAPTION_SETTINGS.get("margin_bottom", 50)
+        shadow_depth = CAPTION_SETTINGS.get("shadow_depth", 1)
+
+        # Position: bottom bawah, word-level subtitle style
+        return (
+            f"subtitles='{srt_escaped}':"
+            f"force_style='FontName={font},"
+            f"FontSize={font_size},"
+            f"PrimaryColour=&H00FFFFFF,"  # White
+            f"OutlineColour=&H00000000,"  # Black outline
+            f"BackColour=&H80000000,"  # Semi-transparent black background
+            f"Outline={outline_width},"
+            f"Shadow={shadow_depth},"
+            f"Alignment=2,"  # Center bottom
+            f"MarginV={margin_bottom}'"
+        )
+
+
+def convert_to_vertical(video_path: str, output_path: str, subtitle_path: str = None) -> str:
+    """
+    Convert video ke aspect ratio 9:16 (vertical/portrait)
+    Menggunakan Smart Crop (Face Detection) jika memungkinkan,
+    fallback ke Center Crop.
+    
+    Args:
+        video_path: Path ke video input
+        output_path: Path untuk output
+        subtitle_path: Optional path to SRT/ASS file to burn during conversion
+        
+    Returns:
+        Path ke video vertical
+    """
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    
     width = VIDEO_SETTINGS["output_width"]
     height = VIDEO_SETTINGS["output_height"]
     
@@ -111,6 +163,13 @@ def convert_to_vertical(video_path: str, output_path: str) -> str:
 
     filter_complex = _get_crop_filter(video_path)
     
+    if subtitle_path:
+        sub_filter = _get_subtitle_filter(subtitle_path)
+        filter_complex += f",{sub_filter}"
+        print(f"[CROP+SUB] Converting to vertical with subtitles...")
+    else:
+        print(f"[CROP] Converting to vertical (9:16)...")
+
     cmd = [
         "ffmpeg", "-y",
         "-i", str(video_path),
@@ -122,8 +181,6 @@ def convert_to_vertical(video_path: str, output_path: str) -> str:
         "-pix_fmt", "yuv420p",
         str(output_path)
     ]
-    
-    print(f"[CROP] Converting to vertical (9:16)...")
     result = subprocess.run(cmd, capture_output=True, text=True)
     
     if result.returncode != 0:
@@ -192,7 +249,7 @@ def burn_captions(video_path: str, srt_path: str, output_path: str) -> str:
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
-    subtitle_filter = _get_subtitle_filter(str(srt_path))
+    subtitle_filter = _get_subtitle_filter(srt_path)
     
     cmd = [
         "ffmpeg", "-y",
@@ -448,7 +505,7 @@ def create_final_clip(
     print(f"[ACTION] Processing Clip #{clip_number}: {clip_info.get('caption_title', 'Unknown')}")
     print(f"{'='*50}")
     
-    # Step 2: Generate Captions (SRT or ASS) - Done first so it's available for both pipelines
+    # Step 1: Generate Captions (SRT or ASS) - Generate first to burn during conversion
     caption_style = CAPTION_SETTINGS.get("style", "simple")
     subtitle_path = None
     
@@ -461,41 +518,28 @@ def create_final_clip(
             subtitle_path = temp_dir / f"{base_name}.srt"
             words_per_line = CAPTION_SETTINGS.get("words_per_line", 3)
             generate_srt_from_segments(segments, str(subtitle_path), words_per_line=words_per_line)
-
-    # Step 4 Preparation: Select BGM
+    
+    # Step 2: Convert to vertical AND burn captions (if any)
+    # Combined step saves one full encoding pass!
+    processed_path = temp_dir / f"{base_name}_processed.mp4"
+    processed_video = convert_to_vertical(
+        video_segment_path,
+        str(processed_path),
+        subtitle_path=str(subtitle_path) if subtitle_path else None
+    )
+    
+    # Step 3: Add BGM
     mood = clip_info.get("mood", "chill")
     bgm_path = select_bgm_by_mood(mood)
     final_video_path = output_dir / f"{base_name}.mp4"
-
-    # Try optimized pipeline
-    success = False
-    try:
-        _create_final_clip_optimized(
-            video_segment_path,
-            clip_info,
-            subtitle_path,
-            bgm_path,
-            final_video_path
-        )
-        success = True
-    except Exception as e:
-        print(f"[WARN] Optimized processing failed: {e}")
-        print("[INFO] Falling back to sequential processing...")
-        # Fallback will be executed below if success is False
-
-    if not success:
-        _create_final_clip_sequential(
-            video_segment_path,
-            clip_info,
-            segments,
-            clip_number,
-            output_dir,
-            temp_dir,
-            base_name,
-            subtitle_path,
-            bgm_path,
-            final_video_path
-        )
+    if bgm_path:
+        final_video = add_background_music(processed_video, bgm_path, str(final_video_path))
+    else:
+        # Copy without BGM
+        import shutil
+        shutil.copy(processed_video, final_video_path)
+        final_video = str(final_video_path)
+        print("! No BGM added (no matching file found)")
     
     # Step 5: Generate thumbnail
     thumbnail_path = output_dir / f"{base_name}_thumbnail.jpg"
