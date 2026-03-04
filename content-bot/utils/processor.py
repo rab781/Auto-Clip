@@ -336,7 +336,7 @@ def generate_thumbnail(video_path: str, output_path: str, timestamp: float = Non
         "-i", f"file:{video_path}",
         "-vframes", "1",
         "-q:v", "2",
-        str(output_path)
+        f"file:{output_path}"
     ]
     
     print(f"[THUMB] Generating thumbnail at {timestamp:.1f}s...")
@@ -404,12 +404,12 @@ def _create_final_clip_optimized(
     video_filter_chain += "[vout]"
 
     # 2. Audio Filters: Mix if BGM exists
-    inputs = ["-i", str(video_segment_path)]
+    inputs = ["-i", f"file:{video_segment_path}"]
     filter_complex = f"[0:v]{video_filter_chain};"
     map_args = ["-map", "[vout]"]
 
     if bgm_path:
-        inputs.extend(["-i", str(bgm_path)])
+        inputs.extend(["-i", f"file:{bgm_path}"])
         duration = _get_video_duration(video_segment_path)
         audio_filter_chain = _get_audio_mix_filter(duration, None) # Use default volume
         filter_complex += f"{audio_filter_chain}"
@@ -431,7 +431,7 @@ def _create_final_clip_optimized(
         "-preset", "slow",
         "-pix_fmt", "yuv420p",
         "-shortest", # Stop when shortest input ends (important for looped bgm)
-        str(final_video_path)
+        f"file:{final_video_path}"
     ]
 
     print(f"[OPTIMIZED] Processing clip in single pass...")
