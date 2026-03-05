@@ -59,8 +59,8 @@ class TestProcessorOptimization(unittest.TestCase):
         self.assertIn("-i", cmd)
         input_indices = [i for i, x in enumerate(cmd) if x == "-i"]
         self.assertEqual(len(input_indices), 2) # Video and BGM
-        self.assertEqual(cmd[input_indices[0]+1], str(video_path))
-        self.assertEqual(cmd[input_indices[1]+1], str(bgm_path))
+        self.assertEqual(cmd[input_indices[0]+1], f"file:{video_path}")
+        self.assertEqual(cmd[input_indices[1]+1], f"file:{bgm_path}")
 
         # Verify filter complex
         self.assertIn("-filter_complex", cmd)

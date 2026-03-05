@@ -68,23 +68,18 @@ def _get_subtitle_filter(srt_path: str) -> str:
         )
 
 
-def convert_to_vertical(video_path: str, output_path: str, subtitle_path: str = None) -> str:
+def _get_crop_filter(video_path: str) -> str:
     """
-    Convert video ke aspect ratio 9:16 (vertical/portrait)
+    Return the FFmpeg crop filter string.
     Menggunakan Smart Crop (Face Detection) jika memungkinkan,
     fallback ke Center Crop.
     
     Args:
         video_path: Path ke video input
-        output_path: Path untuk output
-        subtitle_path: Optional path to SRT/ASS file to burn during conversion
         
     Returns:
-        Path ke video vertical
+        FFmpeg filter string
     """
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    
     width = VIDEO_SETTINGS["output_width"]
     height = VIDEO_SETTINGS["output_height"]
     
@@ -110,36 +105,6 @@ def convert_to_vertical(video_path: str, output_path: str, subtitle_path: str = 
     return f"scale=-1:{height},crop={width}:{height}:{crop_x}:0"
 
 
-def _get_subtitle_filter(srt_path: str) -> str:
-    """Helper to construct subtitle filter string"""
-    # Escape path for FFmpeg
-    srt_escaped = str(srt_path).replace("\\", "/").replace(":", "\\:").replace("'", r"'\''")
-
-    is_ass = str(srt_path).lower().endswith(".ass")
-
-    if is_ass:
-        return f"subtitles='{srt_escaped}'"
-
-    font = CAPTION_SETTINGS["font"]
-    font_size = CAPTION_SETTINGS["font_size"]
-    outline_width = CAPTION_SETTINGS["outline_width"]
-    margin_bottom = CAPTION_SETTINGS.get("margin_bottom", 50)
-    shadow_depth = CAPTION_SETTINGS.get("shadow_depth", 1)
-
-    return (
-        f"subtitles='{srt_escaped}':"
-        f"force_style='FontName={font},"
-        f"FontSize={font_size},"
-        f"PrimaryColour=&H00FFFFFF,"
-        f"OutlineColour=&H00000000,"
-        f"BackColour=&H80000000,"
-        f"Outline={outline_width},"
-        f"Shadow={shadow_depth},"
-        f"Alignment=2,"
-        f"MarginV={margin_bottom}'"
-    )
-
-
 def _get_audio_mix_filter(video_duration: float, bgm_volume: float = None) -> str:
     """Helper to construct audio mix filter string"""
     if bgm_volume is None:
@@ -154,7 +119,7 @@ def _get_audio_mix_filter(video_duration: float, bgm_volume: float = None) -> st
     )
 
 
-def convert_to_vertical(video_path: str, output_path: str) -> str:
+def convert_to_vertical(video_path: str, output_path: str, subtitle_path: str = None) -> str:
     """
     Convert video ke aspect ratio 9:16 (vertical/portrait)
     """
@@ -519,27 +484,34 @@ def create_final_clip(
             words_per_line = CAPTION_SETTINGS.get("words_per_line", 3)
             generate_srt_from_segments(segments, str(subtitle_path), words_per_line=words_per_line)
     
-    # Step 2: Convert to vertical AND burn captions (if any)
-    # Combined step saves one full encoding pass!
-    processed_path = temp_dir / f"{base_name}_processed.mp4"
-    processed_video = convert_to_vertical(
-        video_segment_path,
-        str(processed_path),
-        subtitle_path=str(subtitle_path) if subtitle_path else None
-    )
-    
-    # Step 3: Add BGM
     mood = clip_info.get("mood", "chill")
     bgm_path = select_bgm_by_mood(mood)
     final_video_path = output_dir / f"{base_name}.mp4"
-    if bgm_path:
-        final_video = add_background_music(processed_video, bgm_path, str(final_video_path))
-    else:
-        # Copy without BGM
-        import shutil
-        shutil.copy(processed_video, final_video_path)
-        final_video = str(final_video_path)
-        print("! No BGM added (no matching file found)")
+
+    try:
+        # Attempt optimized single pass first
+        final_video = _create_final_clip_optimized(
+            video_segment_path,
+            clip_info,
+            subtitle_path,
+            bgm_path,
+            final_video_path
+        )
+    except Exception as e:
+        print(f"[WARN] Optimized processing failed ({e}). Falling back to sequential processing...")
+        # Fallback to sequential pass
+        final_video = _create_final_clip_sequential(
+            video_segment_path,
+            clip_info,
+            segments,
+            clip_number,
+            output_dir,
+            temp_dir,
+            base_name,
+            subtitle_path,
+            bgm_path,
+            final_video_path
+        )
     
     # Step 5: Generate thumbnail
     thumbnail_path = output_dir / f"{base_name}_thumbnail.jpg"
