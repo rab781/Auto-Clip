@@ -5,6 +5,12 @@ from unittest.mock import MagicMock
 mock_requests = MagicMock()
 sys.modules["requests"] = mock_requests
 
+sys.modules['yt_dlp'] = MagicMock()
+sys.modules['yt_dlp.utils'] = MagicMock()
+sys.modules['cv2'] = MagicMock()
+sys.modules['mediapipe'] = MagicMock()
+sys.modules['numpy'] = MagicMock()
+
 mock_config = MagicMock()
 mock_config.CHUTES_API_KEY = "test_key"
 mock_config.CHUTES_BASE_URL = "test_url"
