@@ -431,13 +431,11 @@ def analyze_content_for_clips(transcription: dict, video_info: dict = None) -> l
     }
     
     # Format transcript dengan timestamps
-    segments_text = ""
     if "segments" in transcription:
-        for seg in transcription["segments"]:
-            start = seg.get("start", 0)
-            end = seg.get("end", 0)
-            text = seg.get("text", "")
-            segments_text += f"[{start:.1f}s - {end:.1f}s]: {text}\n"
+        segments_text = "".join(
+            f"[{seg.get('start', 0):.1f}s - {seg.get('end', 0):.1f}s]: {seg.get('text', '')}\n"
+            for seg in transcription["segments"]
+        )
     else:
         segments_text = transcription.get("text", "")
     
