@@ -278,6 +278,11 @@ Examples:
         action="store_true",
         help="Analyze only, don't process clips"
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Show detailed stack traces on error"
+    )
     
     args = parser.parse_args()
     
@@ -308,8 +313,9 @@ Examples:
         sys.exit(0)
     except Exception as e:
         print(f"\n[ERROR] Error: {e}")
-        import traceback
-        traceback.print_exc()
+        if args.debug:
+            import traceback
+            traceback.print_exc()
         sys.exit(1)
 
 

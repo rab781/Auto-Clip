@@ -20,6 +20,13 @@ import os
 # Add the parent directory to sys.path to allow importing from utils
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
+# Mock yt_dlp before utils import
+sys.modules['yt_dlp'] = MagicMock()
+sys.modules['yt_dlp.utils'] = MagicMock()
+sys.modules['cv2'] = MagicMock()
+sys.modules['mediapipe'] = MagicMock()
+sys.modules['numpy'] = MagicMock()
+
 from utils.ai_logic import _parse_clips_json
 
 def test_parse_clips_json_valid_direct_list():
