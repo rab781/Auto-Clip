@@ -146,7 +146,7 @@ def convert_to_vertical(video_path: str, output_path: str, subtitle_path: str = 
         "-pix_fmt", "yuv420p",
         f"file:{output_path}"
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     
     if result.returncode != 0:
         raise Exception(f"FFmpeg error: {result.stderr}")
@@ -229,7 +229,7 @@ def burn_captions(video_path: str, srt_path: str, output_path: str) -> str:
     ]
     
     print(f"[SUB] Burning captions to video...")
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     
     if result.returncode != 0:
         print("! Trying simpler subtitle format...")
@@ -242,7 +242,7 @@ def burn_captions(video_path: str, srt_path: str, output_path: str) -> str:
             "-c:a", "copy",
             f"file:{output_path}"
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
         
         if result.returncode != 0:
             raise Exception(f"FFmpeg error: {result.stderr}")
@@ -275,7 +275,7 @@ def add_background_music(video_path: str, bgm_path: str, output_path: str,
     ]
     
     print(f"[MUSIC] Adding background music (volume: {(bgm_volume or AUDIO_SETTINGS['bgm_volume'])*100:.0f}%)...")
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     
     if result.returncode != 0:
         raise Exception(f"FFmpeg error: {result.stderr}")
@@ -305,7 +305,7 @@ def generate_thumbnail(video_path: str, output_path: str, timestamp: float = Non
     ]
     
     print(f"[THUMB] Generating thumbnail at {timestamp:.1f}s...")
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     
     if result.returncode != 0:
         raise Exception(f"FFmpeg error: {result.stderr}")
@@ -400,7 +400,7 @@ def _create_final_clip_optimized(
     ]
 
     print(f"[OPTIMIZED] Processing clip in single pass...")
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
 
     if result.returncode != 0:
         raise Exception(f"FFmpeg error: {result.stderr}")
@@ -565,7 +565,7 @@ def _get_video_duration(video_path: str) -> float:
         f"file:{video_path}"
     ]
     
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     
     if result.returncode != 0:
         return 30.0  # Default fallback
