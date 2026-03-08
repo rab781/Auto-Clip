@@ -200,7 +200,7 @@ def _get_audio_duration(audio_path: str) -> float:
         f"file:{audio_path}"
     ]
     
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     
     try:
         return float(result.stdout.strip())
@@ -223,7 +223,7 @@ def _extract_audio_chunk(audio_path: str, output_path: str, start: float, end: f
         f"file:{output_path}"
     ]
     
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     if result.returncode != 0:
         raise Exception(f"FFmpeg error: {result.stderr[:200]}")
 
