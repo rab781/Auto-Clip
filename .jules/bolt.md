@@ -7,3 +7,7 @@
 ## 2025-02-18 - [Optimization] Avoid O(N²) String Concatenation in Long Transcripts
 **Learning:** Using the `+=` operator for string concatenation inside a loop over thousands of items (e.g., formatting video transcript segments) causes repeated memory reallocation, making it an O(N²) operation that can block the main thread and significantly degrade performance. Replacing it with a generator expression or list accumulation combined with `"".join()` transforms the operation into an O(N) process, resulting in vastly improved efficiency when building large strings.
 **Action:** Always use `"".join()` with list comprehensions or generators instead of `+=` when accumulating strings inside loops, especially for documents that can grow unbounded like transcripts, logs, or subtitle files.
+
+## 2025-02-18 - [Optimization] Efficient Subtitle Formatting
+**Learning:** Subtitle generator loops like ASS generation iterating over multiple sentences/words per second build a very large `.ass` text payload. The previous `+=` concatenation generated intermediate objects and forced Python to reallocate memory and copy strings on every word. Switching to `list.append(...)` followed by `"".join(ass_lines)` speeds up string creation drastically while handling large files smoothly.
+**Action:** Apply list building techniques (`[]` + `append()` + `"".join()`) across all IO bound routines emitting text logs, subtitle generation outputs (`SRT`/`ASS`/`VTT`), or formatting transcripts in O(N) instead of O(N²).
