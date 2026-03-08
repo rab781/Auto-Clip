@@ -39,7 +39,7 @@ def generate_animated_ass(segments: list, output_path: str, settings: dict) -> s
     highlight_color = settings.get("highlight_color", "&H0000FFFF")  # Yellow (BGR)
     
     # Header
-    ass_content = f"""[Script Info]
+    ass_header = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
 PlayResY: 1920
@@ -52,6 +52,8 @@ Style: Default,{font},{font_size},{primary_color},{primary_color},{outline_color
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
+
+    ass_lines = [ass_header]
 
     words_per_batch = settings.get("words_per_line", 2)
     
@@ -87,24 +89,24 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 frame_end = batch_start_time + ((i + 1) * time_per_batch_word)
                 
                 # Construct text with highlight tags
-                formatted_text = ""
+                formatted_words = []
                 for j, w in enumerate(batch_words):
                     if j == i:
                         # Active word: Highlight color + scale up for pop effect
-                        formatted_text += f"{{\\c{highlight_color}\\fscx120\\fscy120}}{w}{{\\c{primary_color}\\fscx100\\fscy100}} "
+                        formatted_words.append(f"{{\\c{highlight_color}\\fscx120\\fscy120}}{w}{{\\c{primary_color}\\fscx100\\fscy100}}")
                     else:
-                        formatted_text += f"{w} "
+                        formatted_words.append(w)
                 
-                formatted_text = formatted_text.strip()
+                formatted_text = " ".join(formatted_words)
                 
                 start_str = format_timestamp(frame_start, 'ass')
                 end_str = format_timestamp(frame_end, 'ass')
                 
-                ass_content += f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{formatted_text}\n"
+                ass_lines.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{formatted_text}\n")
             
             current_word_idx += words_per_batch
 
     with open(output_path, "w", encoding="utf-8") as f:
-        f.write(ass_content)
+        f.write("".join(ass_lines))
         
     return output_path
