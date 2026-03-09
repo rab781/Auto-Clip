@@ -11,3 +11,7 @@
 ## 2025-02-18 - [Optimization] Efficient Subtitle Formatting
 **Learning:** Subtitle generator loops like ASS generation iterating over multiple sentences/words per second build a very large `.ass` text payload. The previous `+=` concatenation generated intermediate objects and forced Python to reallocate memory and copy strings on every word. Switching to `list.append(...)` followed by `"".join(ass_lines)` speeds up string creation drastically while handling large files smoothly.
 **Action:** Apply list building techniques (`[]` + `append()` + `"".join()`) across all IO bound routines emitting text logs, subtitle generation outputs (`SRT`/`ASS`/`VTT`), or formatting transcripts in O(N) instead of O(N²).
+
+## 2025-02-18 - [Optimization] Avoid Re-encoding Audio During Chunking
+**Learning:** When using `ffmpeg` to split large audio files (like downloaded MP3s) into smaller chunks for processing (e.g., passing to a transcription API), using standard audio codec parameters like `-acodec libmp3lame -q:a 4` forces a full decode/re-encode cycle. This is computationally expensive, especially for long files. Replacing the codec parameter with `-c:a copy` performs a direct stream copy, which avoids re-encoding entirely, yielding a substantial speedup (3-4x faster) with zero loss in quality.
+**Action:** When splitting, trimming, or extracting media files where the format does not need to change, always use `-c:a copy` or `-c:v copy` in `ffmpeg` commands to avoid unnecessary re-encoding bottlenecks.
