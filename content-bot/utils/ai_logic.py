@@ -218,8 +218,7 @@ def _extract_audio_chunk(audio_path: str, output_path: str, start: float, end: f
         "-ss", str(start),
         "-i", f"file:{audio_path}",
         "-t", str(duration),
-        "-acodec", "libmp3lame",
-        "-q:a", "4",
+        "-c:a", "copy",
         f"file:{output_path}"
     ]
     
