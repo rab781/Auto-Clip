@@ -11,6 +11,16 @@ from pathlib import Path
 from urllib.parse import urlparse
 import yt_dlp
 from yt_dlp.utils import download_range_func
+import sys
+sys.path.append(str(Path(__file__).parent.parent))
+
+try:
+    from config import DOWNLOAD_SETTINGS
+except ImportError:
+    # Fallback to absolute import if run directly
+    import os
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from config import DOWNLOAD_SETTINGS
 
 
 def _validate_youtube_url(url: str):
@@ -59,6 +69,9 @@ def download_audio_only(url: str, output_dir: str) -> str:
         'outtmpl': output_template,
         'noplaylist': True,
         'quiet': True,
+        # Security enhancement: Prevent resource exhaustion/DoS from massive files
+        'max_filesize': DOWNLOAD_SETTINGS['max_filesize'],
+        'match_filter': lambda info, *args, **kwargs: 'Video is too long' if (info.get('duration') or 0) > DOWNLOAD_SETTINGS['max_duration'] else None,
     }
     
     print(f"[DL] Downloading audio from: {url}")
@@ -114,6 +127,9 @@ def download_video_segment(url: str, start: float, end: float, output_path: str)
         'merge_output_format': 'mp4',
         'noplaylist': True,
         'quiet': True,
+        # Security enhancement: Prevent resource exhaustion/DoS from massive files
+        'max_filesize': DOWNLOAD_SETTINGS['max_filesize'],
+        'match_filter': lambda info, *args, **kwargs: 'Video is too long' if (info.get('duration') or 0) > DOWNLOAD_SETTINGS['max_duration'] else None,
     }
 
     print(f"[DL] Downloading video segment: {start_str} - {end_str}")
