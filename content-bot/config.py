@@ -29,6 +29,12 @@ BGM_DIR = ASSETS_DIR / "bgm"
 for dir_path in [DOWNLOADS_DIR, TEMP_DIR, OUTPUT_DIR, BGM_DIR]:
     dir_path.mkdir(parents=True, exist_ok=True)
 
+# === Download Settings ===
+DOWNLOAD_SETTINGS = {
+    "max_filesize": 500 * 1024 * 1024,  # 500MB max file size to prevent DoS
+    "max_duration": 3600,  # 1 hour max duration
+}
+
 # === Video Processing Settings ===
 VIDEO_SETTINGS = {
     "output_width": 1080,
