@@ -16,3 +16,8 @@
 **Vulnerability:** The processor script failed to prefix output file paths and secondary input paths with `file:` in multiple FFmpeg subprocess calls. While input paths were generally prefixed, missing it on outputs still exposes the script to protocol injection vulnerabilities, allowing arbitrary file writes, SSRF, or other exploits depending on the provided paths.
 **Learning:** All file paths passed to FFmpeg and FFprobe (both `-i` inputs and positional outputs) must explicitly include the `file:` prefix when invoked via `subprocess`, due to FFmpeg's lack of a `--` argument delimiter.
 **Prevention:** Systematically apply `file:` to every dynamic path used in FFmpeg/FFprobe subprocess commands.
+
+## 2024-05-25 - Prevent DoS via Media Download Resource Exhaustion
+**Vulnerability:** The application was downloading external media files (audio/video from YouTube) without enforcing file size or duration limits, creating a Denial of Service (DoS) vulnerability via resource exhaustion if an attacker provided a link to an oversized or excessively long video.
+**Learning:** `yt-dlp` does not limit downloaded file sizes or durations by default. Applications must explicitly configure resource limits via `ydl_opts` to protect disk space, memory, and processing time, particularly when processing media autonomously.
+**Prevention:** Always set `max_filesize` and use `match_filter` (e.g., `match_filter_func("duration <= limit")`) in the `yt-dlp` configuration (`ydl_opts`) when accepting URLs. Centralize these limits in a configuration file (like `DOWNLOAD_SETTINGS`) to ensure consistency across all download functions.

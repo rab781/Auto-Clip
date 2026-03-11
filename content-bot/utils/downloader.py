@@ -10,8 +10,9 @@ import yt_dlp
 from pathlib import Path
 from urllib.parse import urlparse
 import yt_dlp
-from yt_dlp.utils import download_range_func
+from yt_dlp.utils import download_range_func, match_filter_func
 
+from config import DOWNLOAD_SETTINGS
 
 def _validate_youtube_url(url: str):
     """
@@ -59,6 +60,8 @@ def download_audio_only(url: str, output_dir: str) -> str:
         'outtmpl': output_template,
         'noplaylist': True,
         'quiet': True,
+        'max_filesize': DOWNLOAD_SETTINGS['max_filesize'],
+        'match_filter': match_filter_func(f"duration <= {DOWNLOAD_SETTINGS['max_duration']}"),
     }
     
     print(f"[DL] Downloading audio from: {url}")
@@ -114,6 +117,7 @@ def download_video_segment(url: str, start: float, end: float, output_path: str)
         'merge_output_format': 'mp4',
         'noplaylist': True,
         'quiet': True,
+        'max_filesize': DOWNLOAD_SETTINGS['max_filesize'],
     }
 
     print(f"[DL] Downloading video segment: {start_str} - {end_str}")
