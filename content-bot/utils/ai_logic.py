@@ -341,24 +341,29 @@ def translate_segments(segments: list, target_lang: str = "Indonesian") -> list:
     
     print(f"[TRANS] Translating {len(segments)} segments to {target_lang} ({total_batches} batches)...")
     
-    for batch_idx in range(0, len(segments), batch_size):
-        batch = segments[batch_idx:batch_idx + batch_size]
-        batch_num = (batch_idx // batch_size) + 1
-        
-        # Build numbered text for batch translation
-        numbered_texts = []
-        for i, seg in enumerate(batch):
-            text = seg["text"].strip()
-            if text:
-                numbered_texts.append(f"{i+1}. {text}")
-        
-        if not numbered_texts:
-            translated.extend(batch)
-            continue
-        
-        batch_text = "\n".join(numbered_texts)
-        
-        prompt = f"""Terjemahkan SEMUA kalimat berikut ke Bahasa Indonesia.
+    # ⚡ Bolt Optimization: Use a Session for connection pooling when making sequential API calls
+    # Impact: Reuses the underlying TCP connection/TLS session across multiple requests,
+    # eliminating handshake overhead and significantly speeding up batch translation.
+    # Measurement: Compare translation time for a video with 5+ batches with vs without session.
+    with requests.Session() as session:
+        for batch_idx in range(0, len(segments), batch_size):
+            batch = segments[batch_idx:batch_idx + batch_size]
+            batch_num = (batch_idx // batch_size) + 1
+
+            # Build numbered text for batch translation
+            numbered_texts = []
+            for i, seg in enumerate(batch):
+                text = seg["text"].strip()
+                if text:
+                    numbered_texts.append(f"{i+1}. {text}")
+
+            if not numbered_texts:
+                translated.extend(batch)
+                continue
+
+            batch_text = "\n".join(numbered_texts)
+
+            prompt = f"""Terjemahkan SEMUA kalimat berikut ke Bahasa Indonesia.
 PENTING: 
 - Pertahankan nomor urut di awal setiap baris
 - Terjemahkan dengan natural, bukan kaku
@@ -366,58 +371,58 @@ PENTING:
 - JANGAN tambahkan penjelasan apapun
 
 {batch_text}"""
-        
-        data = {
-            "model": LLM_MODEL,
-            "messages": [
-                {"role": "system", "content": "Kamu adalah penerjemah profesional. Tugasmu HANYA menerjemahkan teks yang diberikan ke Bahasa Indonesia. Output HANYA terjemahan dengan nomor urut, tanpa penjelasan."},
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.3,
-            "max_tokens": 1500,
-        }
-        
-        try:
-            print(f"   [NOTE] Batch {batch_num}/{total_batches}...")
-            response = requests.post(
-                f"{CHUTES_BASE_URL}/chat/completions",
-                headers=headers,
-                json=data,
-                timeout=60
-            )
             
-            if response.status_code == 200:
-                result = response.json()
-                translated_text = result["choices"][0]["message"]["content"].strip()
+            data = {
+                "model": LLM_MODEL,
+                "messages": [
+                    {"role": "system", "content": "Kamu adalah penerjemah profesional. Tugasmu HANYA menerjemahkan teks yang diberikan ke Bahasa Indonesia. Output HANYA terjemahan dengan nomor urut, tanpa penjelasan."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.3,
+                "max_tokens": 1500,
+            }
+
+            try:
+                print(f"   [NOTE] Batch {batch_num}/{total_batches}...")
+                response = session.post(
+                    f"{CHUTES_BASE_URL}/chat/completions",
+                    headers=headers,
+                    json=data,
+                    timeout=60
+                )
                 
-                # Parse numbered translations back
-                translations = {}
-                for line in translated_text.split("\n"):
-                    line = line.strip()
-                    if not line:
-                        continue
-                    # Match "1. translated text" format
-                    match = re.match(r'^(\d+)\.\s*(.+)$', line)
-                    if match:
-                        idx = int(match.group(1)) - 1
-                        translations[idx] = match.group(2).strip()
-                
-                # Apply translations to batch
-                for i, seg in enumerate(batch):
-                    new_seg = seg.copy()
-                    if i in translations:
-                        new_seg["text"] = translations[i]
-                    translated.append(new_seg)
-                
-                translated_count = len(translations)
-                print(f"      [OK] {translated_count}/{len(batch)} segments translated")
-            else:
-                print(f"      [WARN] Translation API error ({response.status_code}), using original text")
+                if response.status_code == 200:
+                    result = response.json()
+                    translated_text = result["choices"][0]["message"]["content"].strip()
+
+                    # Parse numbered translations back
+                    translations = {}
+                    for line in translated_text.split("\n"):
+                        line = line.strip()
+                        if not line:
+                            continue
+                        # Match "1. translated text" format
+                        match = re.match(r'^(\d+)\.\s*(.+)$', line)
+                        if match:
+                            idx = int(match.group(1)) - 1
+                            translations[idx] = match.group(2).strip()
+
+                    # Apply translations to batch
+                    for i, seg in enumerate(batch):
+                        new_seg = seg.copy()
+                        if i in translations:
+                            new_seg["text"] = translations[i]
+                        translated.append(new_seg)
+
+                    translated_count = len(translations)
+                    print(f"      [OK] {translated_count}/{len(batch)} segments translated")
+                else:
+                    print(f"      [WARN] Translation API error ({response.status_code}), using original text")
+                    translated.extend(batch)
+
+            except Exception as e:
+                print(f"      [ERROR] Translation error: {str(e)[:80]}, using original text")
                 translated.extend(batch)
-                
-        except Exception as e:
-            print(f"      [ERROR] Translation error: {str(e)[:80]}, using original text")
-            translated.extend(batch)
     
     print(f"[OK] Translation complete: {len(translated)} segments")
     return translated
