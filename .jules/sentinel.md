@@ -21,3 +21,8 @@
 **Vulnerability:** The application was downloading external media files (audio/video from YouTube) without enforcing file size or duration limits, creating a Denial of Service (DoS) vulnerability via resource exhaustion if an attacker provided a link to an oversized or excessively long video.
 **Learning:** `yt-dlp` does not limit downloaded file sizes or durations by default. Applications must explicitly configure resource limits via `ydl_opts` to protect disk space, memory, and processing time, particularly when processing media autonomously.
 **Prevention:** Always set `max_filesize` and use `match_filter` (e.g., `match_filter_func("duration <= limit")`) in the `yt-dlp` configuration (`ydl_opts`) when accepting URLs. Centralize these limits in a configuration file (like `DOWNLOAD_SETTINGS`) to ensure consistency across all download functions.
+
+## 2026-02-12 - Prevent DoS via Hanging Network Connections in Media Downloads
+**Vulnerability:** External media download utilities (like `yt-dlp`) lacked socket timeout configurations. An attacker could provide a URL pointing to a malicious server that accepts connections but sends data infinitely slowly (Slowloris-style attack) or hangs entirely, holding the server thread open and causing resource exhaustion (DoS).
+**Learning:** Even with file size constraints (`max_filesize`), a hung connection can tie up application resources (threads, memory, file descriptors) indefinitely if no socket timeout is explicitly enforced.
+**Prevention:** Always set network timeouts (e.g., `'socket_timeout': 60`) in download configurations (`ydl_opts`) for all external media metadata checks and downloads to ensure connections fail securely when stalled.

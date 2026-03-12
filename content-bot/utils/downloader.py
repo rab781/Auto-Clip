@@ -60,6 +60,7 @@ def download_audio_only(url: str, output_dir: str) -> str:
         'outtmpl': output_template,
         'noplaylist': True,
         'quiet': True,
+        'socket_timeout': 60,  # Prevent hanging connections
         'max_filesize': DOWNLOAD_SETTINGS['max_filesize'],
         'match_filter': match_filter_func(f"duration <= {DOWNLOAD_SETTINGS['max_duration']}"),
     }
@@ -117,6 +118,7 @@ def download_video_segment(url: str, start: float, end: float, output_path: str)
         'merge_output_format': 'mp4',
         'noplaylist': True,
         'quiet': True,
+        'socket_timeout': 60,  # Prevent hanging connections
         'max_filesize': DOWNLOAD_SETTINGS['max_filesize'],
     }
 
@@ -154,6 +156,7 @@ def get_video_info(url: str) -> dict:
         'extract_flat': 'in_playlist',
         'noplaylist': True,
         'quiet': True,
+        'socket_timeout': 60,  # Prevent hanging connections
     }
 
     try:
