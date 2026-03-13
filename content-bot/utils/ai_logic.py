@@ -20,6 +20,12 @@ from config import CHUTES_API_KEY, CHUTES_BASE_URL, WHISPER_MODEL, LLM_MODEL, VI
 
 def validate_dependencies():
     """Validate that FFmpeg and ffprobe are available on the system."""
+    if not CHUTES_API_KEY:
+        raise RuntimeError(
+            "FATAL: CHUTES_API_KEY is not configured in environment or .env file!\n"
+            "   Please set CHUTES_API_KEY to prevent unauthenticated API access."
+        )
+
     for tool in ["ffmpeg", "ffprobe"]:
         try:
             result = subprocess.run(

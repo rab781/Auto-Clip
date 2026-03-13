@@ -26,3 +26,8 @@
 **Vulnerability:** External media download utilities (like `yt-dlp`) lacked socket timeout configurations. An attacker could provide a URL pointing to a malicious server that accepts connections but sends data infinitely slowly (Slowloris-style attack) or hangs entirely, holding the server thread open and causing resource exhaustion (DoS).
 **Learning:** Even with file size constraints (`max_filesize`), a hung connection can tie up application resources (threads, memory, file descriptors) indefinitely if no socket timeout is explicitly enforced.
 **Prevention:** Always set network timeouts (e.g., `'socket_timeout': 60`) in download configurations (`ydl_opts`) for all external media metadata checks and downloads to ensure connections fail securely when stalled.
+
+## 2026-03-13 - Prevent Unauthenticated API Access (Fail Securely)
+**Vulnerability:** The application executed API calls directly without initially validating if the required API key (`CHUTES_API_KEY`) was populated. This can lead to uncontrolled failures (stack traces, crashes) deep within API requests or expose the application to unauthenticated request behaviors.
+**Learning:** Failing to validate the presence of required secrets early in the execution lifecycle compromises secure failure principles. An application should "fail fast and fail securely" rather than making predictably flawed unauthenticated network requests.
+**Prevention:** Validate critical credentials early in the application flow (e.g., during dependency checking or initialization) and exit gracefully with clear, sanitized security messages if they are absent.
