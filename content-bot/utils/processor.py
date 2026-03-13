@@ -13,6 +13,7 @@ import random
 import shutil
 from pathlib import Path
 import sys
+import functools
 sys.path.append(str(__file__).rsplit('\\', 2)[0])
 
 from config import (
@@ -314,6 +315,18 @@ def generate_thumbnail(video_path: str, output_path: str, timestamp: float = Non
     return str(output_path)
 
 
+@functools.lru_cache(maxsize=1)
+def _list_bgm_files(bgm_dir_path: str) -> tuple:
+    """
+    Helper untuk cache daftar file BGM agar tidak melakukan disk I/O
+    berulang kali. Mengembalikan tuple of Path objects untuk mencegah mutasi.
+    """
+    bgm_dir = Path(bgm_dir_path)
+    # ⚡ Bolt Optimization: Cache directory listing to prevent redundant disk I/O
+    # Impact: Significantly reduces file system calls when selecting BGM for multiple clips in a batch
+    # Measurement: Timing `select_bgm_by_mood` with and without `@functools.lru_cache`
+    return tuple(bgm_dir.glob("*.mp3")) + tuple(bgm_dir.glob("*.wav"))
+
 def select_bgm_by_mood(mood: str) -> str:
     """
     Select BGM file based on mood
@@ -330,7 +343,8 @@ def select_bgm_by_mood(mood: str) -> str:
     
     patterns = mood_patterns.get(mood.lower(), [mood.lower()])
     
-    all_bgm = list(bgm_dir.glob("*.mp3")) + list(bgm_dir.glob("*.wav"))
+    # ⚡ Bolt Optimization: Utilize cached _list_bgm_files helper
+    all_bgm = _list_bgm_files(str(bgm_dir))
     
     if not all_bgm:
         print(f"! No BGM files found in {bgm_dir}")
