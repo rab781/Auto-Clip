@@ -15,3 +15,7 @@
 ## 2025-02-18 - [Optimization] Connection Pooling for API Calls
 **Learning:** Using `requests.post()` inside a loop (like for batch translating subtitles) forces Python to open a new TCP connection and perform a new TLS handshake for every single request, adding hundreds of milliseconds of latency per batch. Creating a `requests.Session()` object outside the loop and using `session.post()` reuses the underlying connection, significantly speeding up sequential API calls.
 **Action:** Whenever an application makes multiple sequential or looped API requests to the same host, always wrap the calls in a `requests.Session()` to enable connection pooling and eliminate handshake overhead.
+
+## 2025-02-18 - [Optimization] Eliminate Redundant Disk I/O with Caching
+**Learning:** In batch processing pipelines (e.g., generating multiple video clips concurrently), functions that scan directories (like `pathlib.Path.glob`) for static assets (like BGM files) cause redundant disk I/O when called repeatedly. Caching the directory listing significantly reduces file system calls. However, using `functools.lru_cache` on functions returning mutable lists can lead to bugs if the cache is accidentally modified.
+**Action:** When caching directory listings or other static data using `@functools.lru_cache`, always convert the result to an immutable type (e.g., `tuple`) before returning to ensure the cache remains safe from unintended mutations across concurrent calls.
