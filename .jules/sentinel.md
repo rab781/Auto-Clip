@@ -26,3 +26,8 @@
 **Vulnerability:** External media download utilities (like `yt-dlp`) lacked socket timeout configurations. An attacker could provide a URL pointing to a malicious server that accepts connections but sends data infinitely slowly (Slowloris-style attack) or hangs entirely, holding the server thread open and causing resource exhaustion (DoS).
 **Learning:** Even with file size constraints (`max_filesize`), a hung connection can tie up application resources (threads, memory, file descriptors) indefinitely if no socket timeout is explicitly enforced.
 **Prevention:** Always set network timeouts (e.g., `'socket_timeout': 60`) in download configurations (`ydl_opts`) for all external media metadata checks and downloads to ensure connections fail securely when stalled.
+
+## 2026-03-14 - Incomplete Application of DoS Prevention in yt-dlp Utilities
+**Vulnerability:** While `download_audio_only` was previously secured with a `match_filter` to reject videos exceeding `max_duration`, other `yt-dlp` functions (`download_video_segment` and `get_video_info`) lacked this filter. This inconsistency allowed an attacker to bypass the duration limits (e.g., pointing the bot to a continuous 24/7 live stream), causing resource exhaustion and potential DoS during segment extraction or massive metadata fetching.
+**Learning:** Security controls applied to one utility function (like limiting file sizes or durations) are easily missed in similar or secondary utility functions within the same module, leading to partial protection.
+**Prevention:** Ensure that global security constraints (such as `max_filesize`, `max_duration`, and `socket_timeout`) are systematically applied to *all* instances where an external dependency interacts with untrusted inputs.

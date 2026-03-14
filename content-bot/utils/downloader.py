@@ -120,6 +120,7 @@ def download_video_segment(url: str, start: float, end: float, output_path: str)
         'quiet': True,
         'socket_timeout': 60,  # Prevent hanging connections
         'max_filesize': DOWNLOAD_SETTINGS['max_filesize'],
+        'match_filter': match_filter_func(f"duration <= {DOWNLOAD_SETTINGS['max_duration']}"),
     }
 
     print(f"[DL] Downloading video segment: {start_str} - {end_str}")
@@ -157,6 +158,7 @@ def get_video_info(url: str) -> dict:
         'noplaylist': True,
         'quiet': True,
         'socket_timeout': 60,  # Prevent hanging connections
+        'match_filter': match_filter_func(f"duration <= {DOWNLOAD_SETTINGS['max_duration']}"),
     }
 
     try:
