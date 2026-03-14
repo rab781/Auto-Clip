@@ -11,6 +11,7 @@ import subprocess
 import os
 import random
 import shutil
+import functools
 from pathlib import Path
 import sys
 sys.path.append(str(__file__).rsplit('\\', 2)[0])
@@ -314,6 +315,12 @@ def generate_thumbnail(video_path: str, output_path: str, timestamp: float = Non
     return str(output_path)
 
 
+@functools.lru_cache(maxsize=1)
+def _list_bgm_files(bgm_dir: Path) -> tuple:
+    """Cache directory listing of BGM files to avoid redundant disk I/O."""
+    return tuple(list(bgm_dir.glob("*.mp3")) + list(bgm_dir.glob("*.wav")))
+
+
 def select_bgm_by_mood(mood: str) -> str:
     """
     Select BGM file based on mood
@@ -330,7 +337,7 @@ def select_bgm_by_mood(mood: str) -> str:
     
     patterns = mood_patterns.get(mood.lower(), [mood.lower()])
     
-    all_bgm = list(bgm_dir.glob("*.mp3")) + list(bgm_dir.glob("*.wav"))
+    all_bgm = _list_bgm_files(bgm_dir)
     
     if not all_bgm:
         print(f"! No BGM files found in {bgm_dir}")
