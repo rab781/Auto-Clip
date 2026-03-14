@@ -27,6 +27,10 @@
 **Learning:** Even with file size constraints (`max_filesize`), a hung connection can tie up application resources (threads, memory, file descriptors) indefinitely if no socket timeout is explicitly enforced.
 **Prevention:** Always set network timeouts (e.g., `'socket_timeout': 60`) in download configurations (`ydl_opts`) for all external media metadata checks and downloads to ensure connections fail securely when stalled.
 
+## 2026-03-14 - Incomplete Application of DoS Prevention in yt-dlp Utilities
+**Vulnerability:** While `download_audio_only` was previously secured with a `match_filter` to reject videos exceeding `max_duration`, other `yt-dlp` functions (`download_video_segment` and `get_video_info`) lacked this filter. This inconsistency allowed an attacker to bypass the duration limits (e.g., pointing the bot to a continuous 24/7 live stream), causing resource exhaustion and potential DoS during segment extraction or massive metadata fetching.
+**Learning:** Security controls applied to one utility function (like limiting file sizes or durations) are easily missed in similar or secondary utility functions within the same module, leading to partial protection.
+**Prevention:** Ensure that global security constraints (such as `max_filesize`, `max_duration`, and `socket_timeout`) are systematically applied to *all* instances where an external dependency interacts with untrusted inputs.
 ## 2026-03-13 - Prevent Unauthenticated API Access (Fail Securely)
 **Vulnerability:** The application executed API calls directly without initially validating if the required API key (`CHUTES_API_KEY`) was populated. This can lead to uncontrolled failures (stack traces, crashes) deep within API requests or expose the application to unauthenticated request behaviors.
 **Learning:** Failing to validate the presence of required secrets early in the execution lifecycle compromises secure failure principles. An application should "fail fast and fail securely" rather than making predictably flawed unauthenticated network requests.
