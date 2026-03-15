@@ -18,6 +18,15 @@ sys.path.append(str(__file__).rsplit('\\', 2)[0])
 from config import CHUTES_API_KEY, CHUTES_BASE_URL, WHISPER_MODEL, LLM_MODEL, VIDEO_SETTINGS
 
 
+def _sanitize_error_msg(msg: str) -> str:
+    """
+    Sanitize error messages to prevent leaking the API key or other sensitive data.
+    """
+    if CHUTES_API_KEY and CHUTES_API_KEY in msg:
+        return msg.replace(CHUTES_API_KEY, "[REDACTED]")
+    return msg
+
+
 def validate_dependencies():
     """Validate that FFmpeg and ffprobe are available on the system."""
     if not CHUTES_API_KEY:
@@ -306,12 +315,14 @@ def _transcribe_chunk(audio_path: str, time_offset: float, max_retries: int = 3,
             elif response.status_code == 504:
                 print(f"      [TIMEOUT] 504 Timeout on attempt {attempt + 1}")
             else:
-                print(f"      [WARN] API status {response.status_code}: {response.text[:100]}")
+                safe_err = _sanitize_error_msg(response.text)[:100]
+                print(f"      [WARN] API status {response.status_code}: {safe_err}")
                 
         except requests.exceptions.Timeout:
             print(f"      [TIMEOUT] Request timeout on attempt {attempt + 1}")
         except Exception as e:
-            print(f"      [ERROR] Error on attempt {attempt + 1}: {str(e)[:80]}")
+            safe_err = _sanitize_error_msg(str(e))[:80]
+            print(f"      [ERROR] Error on attempt {attempt + 1}: {safe_err}")
         
         if attempt < max_retries - 1:
             wait_time = (attempt + 1) * 20
@@ -423,11 +434,13 @@ PENTING:
                     translated_count = len(translations)
                     print(f"      [OK] {translated_count}/{len(batch)} segments translated")
                 else:
-                    print(f"      [WARN] Translation API error ({response.status_code}), using original text")
+                    safe_err = _sanitize_error_msg(response.text)[:100]
+                    print(f"      [WARN] Translation API error ({response.status_code}): {safe_err}, using original text")
                     translated.extend(batch)
 
             except Exception as e:
-                print(f"      [ERROR] Translation error: {str(e)[:80]}, using original text")
+                safe_err = _sanitize_error_msg(str(e))[:80]
+                print(f"      [ERROR] Translation error: {safe_err}, using original text")
                 translated.extend(batch)
     
     print(f"[OK] Translation complete: {len(translated)} segments")
@@ -543,7 +556,8 @@ HANYA OUTPUT JSON, tanpa penjelasan tambahan."""
     )
     
     if response.status_code != 200:
-        raise Exception(f"LLM API error: {response.text}")
+        safe_err = _sanitize_error_msg(response.text)
+        raise Exception(f"LLM API error: {safe_err}")
     
     result = response.json()
     content = result["choices"][0]["message"]["content"]
@@ -630,6 +644,8 @@ OUTPUT langsung caption-nya saja, tanpa label atau penjelasan."""
     )
     
     if response.status_code != 200:
+        safe_err = _sanitize_error_msg(response.text)[:100]
+        print(f"   [WARN] Caption API error: {safe_err}")
         return clip_info.get('caption_title', 'Check this out! 🔥')
     
     result = response.json()
