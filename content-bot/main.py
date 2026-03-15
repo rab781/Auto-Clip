@@ -30,7 +30,7 @@ from utils import (
 )
 
 
-def process_single_clip(i: int, clip: dict, url: str, transcription: dict) -> dict:
+def process_single_clip(i: int, clip: dict, url: str, transcription: dict, start_times: list = None) -> dict:
     """
     Process a single clip: download, enhance, translate, and create video.
     Returns the result dict or None if failed.
@@ -50,7 +50,12 @@ def process_single_clip(i: int, clip: dict, url: str, transcription: dict) -> di
             segments = transcription["segments"]
             # Optimization: Use binary search (O(log N)) instead of linear scan (O(N))
             # Find the first segment that starts at or after the clip's start time
-            start_idx = bisect.bisect_left(segments, clip["start"], key=lambda x: x["start"])
+            # Using precalculated start_times for Python < 3.10 compatibility without O(N) overhead
+            if start_times:
+                start_idx = bisect.bisect_left(start_times, clip["start"])
+            else:
+                start_times_local = [s["start"] for s in segments]
+                start_idx = bisect.bisect_left(start_times_local, clip["start"])
 
             for i in range(start_idx, len(segments)):
                 seg = segments[i]
@@ -196,6 +201,10 @@ def process_video(url: str, dry_run: bool = False) -> list:
     progress.set_description("[CLIP] Processing clips")
     outputs = []
     
+    # Precalculate start times once for binary search across all clips
+    # This avoids O(N) extraction overhead in each thread while maintaining Python < 3.10 compatibility
+    start_times = [s["start"] for s in transcription.get("segments", [])] if "segments" in transcription else []
+
     # Use ThreadPoolExecutor for parallel processing
     # Recommended max_workers=3 to prevent stability issues
     max_workers = 3
@@ -205,7 +214,7 @@ def process_video(url: str, dry_run: bool = False) -> list:
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Submit all tasks
         future_to_clip = {
-            executor.submit(process_single_clip, i, clip, url, transcription): i
+            executor.submit(process_single_clip, i, clip, url, transcription, start_times): i
             for i, clip in enumerate(clips, 1)
         }
         
