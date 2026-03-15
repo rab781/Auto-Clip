@@ -80,7 +80,7 @@ class TestAILogicSecurity(unittest.TestCase):
 
         # Dummy input
         transcription = {"text": "dummy text"}
-        video_info = {"duration": 100}
+        video_info = {"duration": 100, "title": "Test Video"}
 
         # Call function and expect Exception
         with self.assertRaises(Exception) as context:
