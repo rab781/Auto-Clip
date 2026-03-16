@@ -36,6 +36,10 @@
 **Learning:** Failing to validate the presence of required secrets early in the execution lifecycle compromises secure failure principles. An application should "fail fast and fail securely" rather than making predictably flawed unauthenticated network requests.
 **Prevention:** Validate critical credentials early in the application flow (e.g., during dependency checking or initialization) and exit gracefully with clear, sanitized security messages if they are absent.
 
+## 2026-03-24 - API Key Leakage via Unsanitized Error Messages
+**Vulnerability:** The application was passing external API error responses (`response.text`) directly into printed logs and raised exceptions. If the API echoes back the request payload or includes the provided API key in its error message, this sensitive credential would be exposed in local logs or console output.
+**Learning:** Error messages originating from external APIs must be treated as untrusted input. Directly bubbling them up without sanitization creates an Information Disclosure vulnerability, particularly concerning authorization tokens.
+**Prevention:** Implement a helper function (e.g., `_sanitize_error_msg`) to dynamically scan and redact known sensitive values (like `CHUTES_API_KEY`) from external error payloads before they are logged, printed, or thrown in exceptions.
 ## 2026-03-15 - API Key Leakage via Error Messages
 **Vulnerability:** The application was catching API HTTP errors (like 500s or 401s) and directly formatting the external API's response payload (`response.text`) into its own exception or log messages. If the external API echoes back the invalid/provided authorization token in its error body, the application will leak this sensitive key into internal logs, user interfaces, or stack traces.
 **Learning:** External API error responses are fundamentally untrusted and can inadvertently reflect back sensitive request data (like API keys or tokens). Treating `response.text` as safe for logging or exception bubbling creates an information disclosure vulnerability.
