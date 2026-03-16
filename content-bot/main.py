@@ -30,7 +30,7 @@ from utils import (
 )
 
 
-def process_single_clip(i: int, clip: dict, url: str, transcription: dict) -> dict:
+def process_single_clip(i: int, clip: dict, url: str, transcription: dict, segment_starts: list) -> dict:
     """
     Process a single clip: download, enhance, translate, and create video.
     Returns the result dict or None if failed.
@@ -50,10 +50,10 @@ def process_single_clip(i: int, clip: dict, url: str, transcription: dict) -> di
             segments = transcription["segments"]
             # Optimization: Use binary search (O(log N)) instead of linear scan (O(N))
             # Find the first segment that starts at or after the clip's start time
-            start_idx = bisect.bisect_left(segments, clip["start"], key=lambda x: x["start"])
+            start_idx = bisect.bisect_left(segment_starts, clip["start"])
 
-            for i in range(start_idx, len(segments)):
-                seg = segments[i]
+            for seg_idx in range(start_idx, len(segments)):
+                seg = segments[seg_idx]
                 # Since segments are sorted by start time, we can stop early if start exceeds clip end
                 if seg["start"] > clip["end"]:
                     break
@@ -202,10 +202,12 @@ def process_video(url: str, dry_run: bool = False) -> list:
     print(f"   [PARALLEL] Processing clips with {max_workers} threads...")
     
     temp_results = []
+    segment_starts = [seg["start"] for seg in transcription.get("segments", [])]
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Submit all tasks
         future_to_clip = {
-            executor.submit(process_single_clip, i, clip, url, transcription): i
+            executor.submit(process_single_clip, i, clip, url, transcription, segment_starts): i
             for i, clip in enumerate(clips, 1)
         }
         
