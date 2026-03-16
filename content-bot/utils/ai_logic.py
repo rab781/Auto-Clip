@@ -313,7 +313,7 @@ def _transcribe_chunk(audio_path: str, time_offset: float, max_retries: int = 3,
             elif response.status_code == 504:
                 print(f"      [TIMEOUT] 504 Timeout on attempt {attempt + 1}")
             else:
-                sanitized_error = _sanitize_error_msg(response.text[:100])
+                sanitized_error = _sanitize_error_msg(response.text)[:100]
                 print(f"      [WARN] API status {response.status_code}: {sanitized_error}")
                 
         except requests.exceptions.Timeout:
