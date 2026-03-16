@@ -66,5 +66,30 @@ class TestAILogicSecurity(unittest.TestCase):
         self.assertIn('timeout', kwargs, "requests.post should be called with a timeout")
         self.assertGreater(kwargs['timeout'], 0, "Timeout should be positive")
 
+    @patch('utils.ai_logic.CHUTES_API_KEY', 'fake' + '_test_' + 'key')
+    @patch('utils.ai_logic.requests.post')
+    def test_analyze_content_for_clips_redacts_api_key(self, mock_post):
+        """
+        Test that analyze_content_for_clips redacts the API key from error messages.
+        """
+        # Setup mock response simulating an API error that leaks the key
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        mock_response.text = "Error: Invalid API key: fake_test_key. Access denied."
+        mock_post.return_value = mock_response
+
+        # Dummy input
+        transcription = {"text": "dummy text"}
+        video_info = {"duration": 100, "title": "Test Video"}
+
+        # Call function and expect Exception
+        with self.assertRaises(Exception) as context:
+            ai_logic.analyze_content_for_clips(transcription, video_info)
+
+        # Verify the key is redacted
+        error_msg = str(context.exception)
+        self.assertNotIn('fake_test_key', error_msg)
+        self.assertIn('[REDACTED]', error_msg)
+
 if __name__ == '__main__':
     unittest.main()
