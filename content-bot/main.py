@@ -51,14 +51,14 @@ def process_single_clip(i: int, clip: dict, url: str, transcription: dict, start
             # Optimization: Use binary search (O(log N)) instead of linear scan (O(N))
             # Find the first segment that starts at or after the clip's start time
             # Using precalculated start_times for Python < 3.10 compatibility without O(N) overhead
-            if start_times:
+            if start_times is not None:
                 start_idx = bisect.bisect_left(start_times, clip["start"])
             else:
                 start_times_local = [s["start"] for s in segments]
                 start_idx = bisect.bisect_left(start_times_local, clip["start"])
 
-            for i in range(start_idx, len(segments)):
-                seg = segments[i]
+            for seg_idx in range(start_idx, len(segments)):
+                seg = segments[seg_idx]
                 # Since segments are sorted by start time, we can stop early if start exceeds clip end
                 if seg["start"] > clip["end"]:
                     break
