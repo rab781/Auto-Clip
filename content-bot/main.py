@@ -15,6 +15,8 @@ import concurrent.futures
 import bisect
 from pathlib import Path
 from tqdm import tqdm
+import unittest
+from unittest import mock
 
 from config import DOWNLOADS_DIR, TEMP_DIR, OUTPUT_DIR
 from utils import (
@@ -30,7 +32,7 @@ from utils import (
 )
 
 
-def process_single_clip(i: int, clip: dict, url: str, transcription: dict) -> dict:
+def process_single_clip(i: int, clip: dict, url: str, transcription: dict, segment_starts: list) -> dict:
     """
     Process a single clip: download, enhance, translate, and create video.
     Returns the result dict or None if failed.
@@ -50,10 +52,10 @@ def process_single_clip(i: int, clip: dict, url: str, transcription: dict) -> di
             segments = transcription["segments"]
             # Optimization: Use binary search (O(log N)) instead of linear scan (O(N))
             # Find the first segment that starts at or after the clip's start time
-            start_idx = bisect.bisect_left(segments, clip["start"], key=lambda x: x["start"])
+            start_idx = bisect.bisect_left(segment_starts, clip["start"])
 
-            for i in range(start_idx, len(segments)):
-                seg = segments[i]
+            for seg_idx in range(start_idx, len(segments)):
+                seg = segments[seg_idx]
                 # Since segments are sorted by start time, we can stop early if start exceeds clip end
                 if seg["start"] > clip["end"]:
                     break
@@ -98,6 +100,76 @@ def process_single_clip(i: int, clip: dict, url: str, transcription: dict) -> di
     except Exception as e:
         print(f"\n! Unexpected error in clip {i}: {e}")
         return None
+
+
+class ProcessSingleClipTest(unittest.TestCase):
+    """
+    Focused unit tests for process_single_clip.
+
+    These tests stub out I/O-heavy helpers and validate:
+      1) The expected subset of transcript segments is selected for a clip window.
+      2) The clip_number passed to create_final_clip remains the original i.
+    """
+
+    def test_segment_selection_and_clip_number(self):
+        # Arrange: synthetic transcription with segments around the clip window.
+        transcription = {
+            "segments": [
+                {"start": 0.0, "end": 5.0, "text": "first"},
+                {"start": 5.0, "end": 10.0, "text": "second"},
+                {"start": 12.0, "end": 15.0, "text": "third"},
+            ]
+        }
+        segment_starts = [s["start"] for s in transcription["segments"]]
+
+        # Clip spans from 4s to 13s: only the second segment should be fully inside
+        # according to the current selection logic.
+        clip = {
+            "start": 4.0,
+            "end": 13.0,
+            "caption_title": "test clip",
+        }
+        url = "http://example.com/video"
+        clip_index = 2
+
+        with mock.patch(__name__ + ".download_video_segment") as mock_download, \
+             mock.patch(__name__ + ".generate_clip_caption") as mock_caption, \
+             mock.patch(__name__ + ".translate_segments") as mock_translate, \
+             mock.patch(__name__ + ".create_final_clip") as mock_create:
+
+            # download_video_segment is a no-op in this test
+            mock_download.return_value = None
+
+            # generate_clip_caption returns a fixed enhanced caption
+            mock_caption.return_value = "enhanced caption"
+
+            # translate_segments returns segments unchanged
+            mock_translate.side_effect = lambda segs: segs
+
+            def create_side_effect(video_segment_path, clip_info, segments, clip_number, output_dir):
+                # Assert clip_number is the original outer index
+                self.assertEqual(clip_number, clip_index)
+
+                # Only the second segment should be selected
+                self.assertEqual(len(segments), 1)
+                seg = segments[0]
+
+                # The times should be relative to clip["start"]
+                self.assertAlmostEqual(seg["start"], 5.0 - clip["start"])
+                self.assertAlmostEqual(seg["end"], 10.0 - clip["start"])
+                self.assertEqual(seg["text"], "second")
+
+                return {"status": "ok"}
+
+            mock_create.side_effect = create_side_effect
+
+            # Act
+            result = process_single_clip(clip_index, clip, url, transcription, segment_starts)
+
+            # Assert
+            self.assertEqual(result, {"status": "ok"})
+            mock_download.assert_called_once()
+            mock_create.assert_called_once()
 
 
 def cleanup_temp(temp_dir: str = None):
@@ -202,10 +274,12 @@ def process_video(url: str, dry_run: bool = False) -> list:
     print(f"   [PARALLEL] Processing clips with {max_workers} threads...")
     
     temp_results = []
+    segment_starts = [seg["start"] for seg in transcription.get("segments", [])]
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Submit all tasks
         future_to_clip = {
-            executor.submit(process_single_clip, i, clip, url, transcription): i
+            executor.submit(process_single_clip, i, clip, url, transcription, segment_starts): i
             for i, clip in enumerate(clips, 1)
         }
         
