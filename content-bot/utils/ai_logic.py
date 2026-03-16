@@ -20,7 +20,7 @@ from config import CHUTES_API_KEY, CHUTES_BASE_URL, WHISPER_MODEL, LLM_MODEL, VI
 
 def _sanitize_error_msg(msg: str) -> str:
     """
-    Sanitize error messages to prevent leaking the API key or other sensitive data.
+    Sanitize error messages to prevent leaking the configured API key.
     """
     if CHUTES_API_KEY and CHUTES_API_KEY in msg:
         return msg.replace(CHUTES_API_KEY, "[REDACTED]")
