@@ -41,6 +41,13 @@ def validate_dependencies():
     print("[OK] FFmpeg & ffprobe ready")
 
 
+def _sanitize_error_msg(error_msg: str) -> str:
+    """Sanitize error messages to avoid leaking sensitive information (e.g., API keys)."""
+    if not error_msg or not CHUTES_API_KEY:
+        return error_msg
+    return error_msg.replace(CHUTES_API_KEY, "[REDACTED_API_KEY]")
+
+
 def api_retry(max_retries: int = 3, base_delay: int = 5):
     """Decorator untuk retry API calls dengan exponential backoff."""
     def decorator(func):
@@ -306,7 +313,8 @@ def _transcribe_chunk(audio_path: str, time_offset: float, max_retries: int = 3,
             elif response.status_code == 504:
                 print(f"      [TIMEOUT] 504 Timeout on attempt {attempt + 1}")
             else:
-                print(f"      [WARN] API status {response.status_code}: {response.text[:100]}")
+                sanitized_error = _sanitize_error_msg(response.text[:100])
+                print(f"      [WARN] API status {response.status_code}: {sanitized_error}")
                 
         except requests.exceptions.Timeout:
             print(f"      [TIMEOUT] Request timeout on attempt {attempt + 1}")
@@ -543,7 +551,7 @@ HANYA OUTPUT JSON, tanpa penjelasan tambahan."""
     )
     
     if response.status_code != 200:
-        raise Exception(f"LLM API error: {response.text}")
+        raise Exception(f"LLM API error: {_sanitize_error_msg(response.text)}")
     
     result = response.json()
     content = result["choices"][0]["message"]["content"]
