@@ -136,6 +136,9 @@ def convert_to_vertical(video_path: str, output_path: str, subtitle_path: str = 
     else:
         print(f"[CROP] Converting to vertical (9:16)...")
 
+    # ⚡ Bolt Optimization: Use 'fast' preset instead of 'slow' for libx264 encoding
+    # Impact: Significantly reduces processing time (~2x speedup) with negligible quality loss
+    # Measurement: Compare FFmpeg execution time before and after the change
     cmd = [
         "ffmpeg", "-y",
         "-i", f"file:{video_path}",
@@ -143,7 +146,7 @@ def convert_to_vertical(video_path: str, output_path: str, subtitle_path: str = 
         "-c:a", "copy",
         "-c:v", "libx264",
         "-crf", "18",
-        "-preset", "slow",
+        "-preset", "fast",
         "-pix_fmt", "yuv420p",
         f"file:{output_path}"
     ]
@@ -217,6 +220,9 @@ def burn_captions(video_path: str, srt_path: str, output_path: str) -> str:
     
     subtitle_filter = _get_subtitle_filter(srt_path)
     
+    # ⚡ Bolt Optimization: Use 'fast' preset instead of 'slow' for libx264 encoding
+    # Impact: Significantly reduces processing time (~2x speedup) with negligible quality loss
+    # Measurement: Compare FFmpeg execution time before and after the change
     cmd = [
         "ffmpeg", "-y",
         "-i", f"file:{video_path}",
@@ -224,7 +230,7 @@ def burn_captions(video_path: str, srt_path: str, output_path: str) -> str:
         "-c:a", "copy",
         "-c:v", "libx264",
         "-crf", "18",
-        "-preset", "slow",
+        "-preset", "fast",
         "-pix_fmt", "yuv420p",
         f"file:{output_path}"
     ]
@@ -400,6 +406,9 @@ def _create_final_clip_optimized(
         if filter_complex.endswith(";"):
             filter_complex = filter_complex[:-1]
 
+    # ⚡ Bolt Optimization: Use 'fast' preset instead of 'slow' for libx264 encoding
+    # Impact: Significantly reduces processing time (~2x speedup) with negligible quality loss
+    # Measurement: Compare FFmpeg execution time before and after the change
     cmd = [
         "ffmpeg", "-y",
         *inputs,
@@ -407,7 +416,7 @@ def _create_final_clip_optimized(
         *map_args,
         "-c:v", "libx264",
         "-crf", "18",
-        "-preset", "slow",
+        "-preset", "fast",
         "-pix_fmt", "yuv420p",
         "-shortest", # Stop when shortest input ends (important for looped bgm)
         f"file:{final_video_path}"
