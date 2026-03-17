@@ -247,6 +247,10 @@ def burn_captions(video_path: str, srt_path: str, output_path: str) -> str:
             "-i", f"file:{video_path}",
             "-vf", f"subtitles='{srt_escaped}'",
             "-c:a", "copy",
+            "-c:v", "libx264",
+            "-crf", "18",
+            "-preset", "fast",
+            "-pix_fmt", "yuv420p",
             f"file:{output_path}"
         ]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
