@@ -23,6 +23,10 @@ from config import (
 from utils.animated_captions import generate_animated_ass
 from utils.time_utils import format_timestamp
 
+# Shared x264 preset for all FFmpeg encodes in this module.
+# Adjust this value (e.g., "veryfast", "slow") to tune performance/quality in one place.
+X264_PRESET = "fast"
+
 # Try to import FaceTracker for smart crop
 try:
     from utils.face_tracker import FaceTracker
@@ -146,7 +150,7 @@ def convert_to_vertical(video_path: str, output_path: str, subtitle_path: str = 
         "-c:a", "copy",
         "-c:v", "libx264",
         "-crf", "18",
-        "-preset", "fast",
+        "-preset", X264_PRESET,
         "-pix_fmt", "yuv420p",
         f"file:{output_path}"
     ]
