@@ -57,8 +57,8 @@ def process_single_clip(i: int, clip: dict, url: str, transcription: dict, start
                 start_times_local = [s["start"] for s in segments]
                 start_idx = bisect.bisect_left(start_times_local, clip["start"])
 
-            for i in range(start_idx, len(segments)):
-                seg = segments[i]
+            for seg_idx in range(start_idx, len(segments)):
+                seg = segments[seg_idx]
                 # Since segments are sorted by start time, we can stop early if start exceeds clip end
                 if seg["start"] > clip["end"]:
                     break
