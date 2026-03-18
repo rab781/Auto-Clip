@@ -50,13 +50,6 @@ def validate_dependencies():
     print("[OK] FFmpeg & ffprobe ready")
 
 
-def _sanitize_error_msg(error_msg: str) -> str:
-    """Sanitize error messages to avoid leaking sensitive information (e.g., API keys)."""
-    if not error_msg or not CHUTES_API_KEY:
-        return error_msg
-    return error_msg.replace(CHUTES_API_KEY, "[REDACTED_API_KEY]")
-
-
 def api_retry(max_retries: int = 3, base_delay: int = 5):
     """Decorator untuk retry API calls dengan exponential backoff."""
     def decorator(func):
