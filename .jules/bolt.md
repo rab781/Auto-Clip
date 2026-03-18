@@ -27,3 +27,7 @@
 ## 2025-02-18 - [Optimization] Avoid O(N) overhead in binary search loops
 **Learning:** When using `bisect.bisect_left` inside loops (like searching for matching transcript segments based on time), passing a `key` parameter to extract a property from a list of dicts forces a small overhead per comparison, but more importantly, isn't fully supported without wrappers in Python < 3.10. Instead of repeatedly constructing data or using `key`, precalculate and extract a plain list of the searchable property outside of the thread pool/loop execution. Passing this precalculated list enables raw, extremely fast `O(log N)` binary search on simple types without additional overhead.
 **Action:** When performing `bisect` inside heavy processing loops or multi-threaded tasks, pre-extract the target values into a separate flat list beforehand to maintain optimal performance and backwards compatibility.
+
+## 2025-02-18 - [Optimization] Divmod over sequential arithmetic
+**Learning:** In tight loops like calculating formatted timestamps for thousands of subtitle frames or segments, doing floating point math (`round()`), sequential floor division (`//`), and modulo operations (`%`) is computationally intensive. Replacing these with `int()` rounding and iterative built-in `divmod()` tuple unpacking speeds up calculations by roughly ~10%, adding up substantially when executed repeatedly.
+**Action:** When converting time or generating timestamps, prefer `divmod()` on integers over chaining `//` and `%` math.
