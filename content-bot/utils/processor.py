@@ -129,7 +129,7 @@ def convert_to_vertical(video_path: str, output_path: str, subtitle_path: str = 
     Convert video ke aspect ratio 9:16 (vertical/portrait)
     """
     output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
 
     filter_complex = _get_crop_filter(video_path)
     
@@ -168,7 +168,7 @@ def generate_srt_from_segments(segments: list, output_path: str, words_per_line:
     Generate SRT file dari Whisper segments dengan word-level timing.
     """
     output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     
     srt_entries = []
     entry_index = 1
@@ -220,7 +220,7 @@ def burn_captions(video_path: str, srt_path: str, output_path: str) -> str:
     Burn captions (hardsub) ke video menggunakan FFmpeg
     """
     output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     
     subtitle_filter = _get_subtitle_filter(srt_path)
     
@@ -272,7 +272,7 @@ def add_background_music(video_path: str, bgm_path: str, output_path: str,
     Mix background music dengan audio original video
     """
     output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     
     duration = _get_video_duration(video_path)
     filter_complex = _get_audio_mix_filter(duration, bgm_volume)
@@ -304,7 +304,7 @@ def generate_thumbnail(video_path: str, output_path: str, timestamp: float = Non
     Generate thumbnail dari video
     """
     output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     
     if timestamp is None:
         duration = _get_video_duration(video_path)
