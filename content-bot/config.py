@@ -27,7 +27,7 @@ BGM_DIR = ASSETS_DIR / "bgm"
 
 # Create directories if not exist
 for dir_path in [DOWNLOADS_DIR, TEMP_DIR, OUTPUT_DIR, BGM_DIR]:
-    dir_path.mkdir(parents=True, exist_ok=True)
+    dir_path.mkdir(mode=0o700, parents=True, exist_ok=True)
 
 # === Download Settings ===
 DOWNLOAD_SETTINGS = {
