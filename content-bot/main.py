@@ -268,6 +268,10 @@ def process_video(url: str, dry_run: bool = False) -> list:
     progress.set_description("[CLIP] Processing clips")
     outputs = []
     
+    # Precalculate start times once for binary search across all clips
+    # This avoids O(N) extraction overhead in each thread while maintaining Python < 3.10 compatibility
+    start_times = [s["start"] for s in transcription.get("segments", [])] if "segments" in transcription else []
+
     # Use ThreadPoolExecutor for parallel processing
     # Recommended max_workers=3 to prevent stability issues
     max_workers = 3
