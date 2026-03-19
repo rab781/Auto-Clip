@@ -46,7 +46,7 @@ def download_audio_only(url: str, output_dir: str) -> str:
     _validate_youtube_url(url)
 
     output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     
     output_template = str(output_dir / "%(title)s.%(ext)s")
     
@@ -104,7 +104,7 @@ def download_video_segment(url: str, start: float, end: float, output_path: str)
     _validate_youtube_url(url)
 
     output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     
     # Format time as HH:MM:SS for display (optional)
     start_str = _seconds_to_hhmmss(start)

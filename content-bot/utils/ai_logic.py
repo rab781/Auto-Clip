@@ -120,7 +120,7 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
     print(f"   [PKG] Splitting audio into {num_chunks} chunks ({chunk_duration}s each)...")
     
     temp_dir = Path(audio_path).parent / "temp_chunks"
-    temp_dir.mkdir(exist_ok=True)
+    temp_dir.mkdir(mode=0o700, exist_ok=True)
     
     all_segments = []
     full_text = ""
