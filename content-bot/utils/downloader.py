@@ -158,6 +158,7 @@ def get_video_info(url: str) -> dict:
         'noplaylist': True,
         'quiet': True,
         'socket_timeout': 60,  # Prevent hanging connections
+        'max_filesize': DOWNLOAD_SETTINGS['max_filesize'],
         'match_filter': match_filter_func(f"duration <= {DOWNLOAD_SETTINGS['max_duration']}"),
     }
 
