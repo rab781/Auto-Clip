@@ -48,8 +48,7 @@ class TestDownloaderMock(unittest.TestCase):
         args, kwargs = mock_ydl_class.call_args
         opts = args[0]
         self.assertEqual(opts['format'], 'bestaudio/best')
-        self.assertEqual(opts['postprocessors'][0]['key'], 'FFmpegExtractAudio')
-        self.assertEqual(opts['postprocessors'][0]['preferredcodec'], 'mp3')
+        self.assertNotIn('postprocessors', opts) # FFmpegExtractAudio removed
         self.assertTrue(opts['noplaylist'])
         self.assertTrue(opts['quiet'])
 
@@ -74,8 +73,8 @@ class TestDownloaderMock(unittest.TestCase):
 
         result = download_audio_only(url, output_dir)
 
-        # Verify fallback logic (replacing extension with .mp3)
-        expected = str(Path('tests/temp_mock/Test Video.mp3'))
+        # Verify fallback logic (no longer replaces extension)
+        expected = str(Path('tests/temp_mock/Test Video.webm'))
         self.assertEqual(result, expected)
 
 if __name__ == '__main__':

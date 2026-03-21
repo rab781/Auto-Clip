@@ -50,13 +50,12 @@ def download_audio_only(url: str, output_dir: str) -> str:
     
     output_template = str(output_dir / "%(title)s.%(ext)s")
     
+    # ⚡ Bolt Optimization: Removed FFmpegExtractAudio postprocessor to skip MP3 transcoding
+    # Impact: Significantly speeds up audio download by avoiding a CPU-heavy transcode step.
+    # The transcription API and FFmpeg perfectly support original formats like .m4a or .webm.
+    # Measurement: Compare download time for a 1-hour video with and without transcoding.
     ydl_opts = {
         'format': 'bestaudio/best',
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
         'outtmpl': output_template,
         'noplaylist': True,
         'quiet': True,
@@ -76,10 +75,8 @@ def download_audio_only(url: str, output_dir: str) -> str:
                 output_path = info['requested_downloads'][0]['filepath']
             else:
                 # Fallback: calculate expected filename
-                # Note: prepare_filename returns the name BEFORE post-processing (e.g. .webm)
-                # But we know we are converting to mp3
                 original_filename = ydl.prepare_filename(info)
-                output_path = str(Path(original_filename).with_suffix('.mp3'))
+                output_path = str(original_filename)
 
             print(f"[OK] Audio downloaded: {output_path}")
             return output_path
