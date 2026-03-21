@@ -241,7 +241,20 @@ def _extract_audio_chunk(audio_path: str, output_path: str, start: float, end: f
     if in_ext and in_ext == out_ext:
         audio_args = ["-c:a", "copy"]
     else:
-        audio_args = ["-acodec", "libmp3lame", "-q:a", "4"]
+        # When re-encoding, choose an appropriate codec for the desired output container
+        if out_ext == "mp3":
+            audio_args = ["-acodec", "libmp3lame", "-q:a", "4"]
+        elif out_ext in ("m4a", "mp4", "aac"):
+            # AAC is the typical codec for M4A/MP4/AAC containers
+            audio_args = ["-acodec", "aac", "-b:a", "192k"]
+        elif out_ext in ("webm", "mkv"):
+            # Opus is commonly used in WebM/MKV containers
+            audio_args = ["-acodec", "libopus", "-b:a", "96k"]
+        elif out_ext == "ogg":
+            audio_args = ["-acodec", "libvorbis", "-b:a", "128k"]
+        else:
+            # Fallback to MP3 if the extension is unknown
+            audio_args = ["-acodec", "libmp3lame", "-q:a", "4"]
 
     cmd = [
         "ffmpeg", "-y",
