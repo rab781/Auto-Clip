@@ -51,3 +51,7 @@
 **Vulnerability:** When initializing directories for sensitive temporary files (`DOWNLOADS_DIR`, `TEMP_DIR`), the app relied on default permissions `mkdir(parents=True, exist_ok=True)`, which allowed any local user to read API payloads or downloaded media.
 **Learning:** Failing to explicitly enforce strict file permissions during initialization leaves potentially sensitive temporary files exposed to local users.
 **Prevention:** Explicitly apply strict directory permissions (e.g., `mode=0o700`) during `mkdir()` to prevent unauthorized local read/write access.
+## 2025-02-18 - Path Traversal & Protocol/Argument Injection Prevention in FFmpeg
+**Vulnerability:** External CLI tools like `ffmpeg` or `ffprobe` (which do not support `--` as a delimiter) are susceptible to SSRF, path traversal, or argument injection (where a path starting with a hyphen `-` could be misinterpreted as a flag).
+**Learning:** Prefixing a file path simply with `file:` in `subprocess.run` may not sufficiently prevent argument injection if the path evaluates to a relative path containing a hyphen or allows directory traversal via relative dots.
+**Prevention:** All user-controlled file paths (inputs and outputs) passed to external tools without a dedicated path delimiter must be converted to absolute paths using `os.path.abspath()` and prepended with the `file:` protocol (e.g., `f'file:{os.path.abspath(path)}'`).

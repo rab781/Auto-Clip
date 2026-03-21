@@ -145,14 +145,14 @@ def convert_to_vertical(video_path: str, output_path: str, subtitle_path: str = 
     # Measurement: Compare FFmpeg execution time before and after the change
     cmd = [
         "ffmpeg", "-y",
-        "-i", f"file:{video_path}",
+        "-i", f"file:{os.path.abspath(video_path)}",
         "-vf", filter_complex,
         "-c:a", "copy",
         "-c:v", "libx264",
         "-crf", "18",
         "-preset", X264_PRESET,
         "-pix_fmt", "yuv420p",
-        f"file:{output_path}"
+        f"file:{os.path.abspath(output_path)}"
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     
@@ -229,14 +229,14 @@ def burn_captions(video_path: str, srt_path: str, output_path: str) -> str:
     # Measurement: Compare FFmpeg execution time before and after the change
     cmd = [
         "ffmpeg", "-y",
-        "-i", f"file:{video_path}",
+        "-i", f"file:{os.path.abspath(video_path)}",
         "-vf", subtitle_filter,
         "-c:a", "copy",
         "-c:v", "libx264",
         "-crf", "18",
         "-preset", "fast",
         "-pix_fmt", "yuv420p",
-        f"file:{output_path}"
+        f"file:{os.path.abspath(output_path)}"
     ]
     
     print(f"[SUB] Burning captions to video...")
@@ -248,14 +248,14 @@ def burn_captions(video_path: str, srt_path: str, output_path: str) -> str:
         srt_escaped = str(srt_path).replace("\\", "/").replace(":", "\\:").replace("'", r"'\''")
         cmd = [
             "ffmpeg", "-y",
-            "-i", f"file:{video_path}",
+            "-i", f"file:{os.path.abspath(video_path)}",
             "-vf", f"subtitles='{srt_escaped}'",
             "-c:a", "copy",
             "-c:v", "libx264",
             "-crf", "18",
             "-preset", "fast",
             "-pix_fmt", "yuv420p",
-            f"file:{output_path}"
+            f"file:{os.path.abspath(output_path)}"
         ]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
         
@@ -279,14 +279,14 @@ def add_background_music(video_path: str, bgm_path: str, output_path: str,
     
     cmd = [
         "ffmpeg", "-y",
-        "-i", f"file:{video_path}",
-        "-i", f"file:{bgm_path}",
+        "-i", f"file:{os.path.abspath(video_path)}",
+        "-i", f"file:{os.path.abspath(bgm_path)}",
         "-filter_complex", filter_complex,
         "-map", "0:v",
         "-map", "[aout]",
         "-c:v", "copy",
         "-shortest",
-        f"file:{output_path}"
+        f"file:{os.path.abspath(output_path)}"
     ]
     
     print(f"[MUSIC] Adding background music (volume: {(bgm_volume or AUDIO_SETTINGS['bgm_volume'])*100:.0f}%)...")
@@ -313,10 +313,10 @@ def generate_thumbnail(video_path: str, output_path: str, timestamp: float = Non
     cmd = [
         "ffmpeg", "-y",
         "-ss", str(timestamp),
-        "-i", f"file:{video_path}",
+        "-i", f"file:{os.path.abspath(video_path)}",
         "-vframes", "1",
         "-q:v", "2",
-        f"file:{output_path}"
+        f"file:{os.path.abspath(output_path)}"
     ]
     
     print(f"[THUMB] Generating thumbnail at {timestamp:.1f}s...")
@@ -397,12 +397,12 @@ def _create_final_clip_optimized(
     video_filter_chain += "[vout]"
 
     # 2. Audio Filters: Mix if BGM exists
-    inputs = ["-i", f"file:{video_segment_path}"]
+    inputs = ["-i", f"file:{os.path.abspath(video_segment_path)}"]
     filter_complex = f"[0:v]{video_filter_chain};"
     map_args = ["-map", "[vout]"]
 
     if bgm_path:
-        inputs.extend(["-i", f"file:{bgm_path}"])
+        inputs.extend(["-i", f"file:{os.path.abspath(bgm_path)}"])
         duration = _get_video_duration(video_segment_path)
         audio_filter_chain = _get_audio_mix_filter(duration, None) # Use default volume
         filter_complex += f"{audio_filter_chain}"
@@ -427,7 +427,7 @@ def _create_final_clip_optimized(
         "-preset", "fast",
         "-pix_fmt", "yuv420p",
         "-shortest", # Stop when shortest input ends (important for looped bgm)
-        f"file:{final_video_path}"
+        f"file:{os.path.abspath(final_video_path)}"
     ]
 
     print(f"[OPTIMIZED] Processing clip in single pass...")
@@ -593,7 +593,7 @@ def _get_video_duration(video_path: str) -> float:
         "-v", "error",
         "-show_entries", "format=duration",
         "-of", "default=noprint_wrappers=1:nokey=1",
-        f"file:{video_path}"
+        f"file:{os.path.abspath(video_path)}"
     ]
     
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
