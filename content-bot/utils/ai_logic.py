@@ -143,7 +143,10 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
         def process_chunk_task(task_args):
             """Helper to process a single chunk in a thread."""
             idx, start_ts, end_ts = task_args
-            chunk_file = temp_dir / f"chunk_{idx:03d}.mp3"
+            # ⚡ Bolt Optimization: Use the original audio's file extension for chunks
+            # so that _extract_audio_chunk can stream-copy instead of transcoding.
+            ext = Path(audio_path).suffix
+            chunk_file = temp_dir / f"chunk_{idx:03d}{ext}"
             label = f"Chunk {idx+1}/{num_chunks}"
 
             try:
@@ -232,11 +235,26 @@ def _extract_audio_chunk(audio_path: str, output_path: str, start: float, end: f
     # Measurement: Time `_extract_audio_chunk` with and without `-c:a copy`
     duration = end - start
 
-    # Safety: Only use stream copy if input and output are both mp3s to avoid muxing errors
-    if audio_path.lower().endswith('.mp3') and output_path.lower().endswith('.mp3'):
+    # Safety: Use stream copy only if input and output formats match exactly, to avoid muxing errors.
+    in_ext = audio_path.split('.')[-1].lower() if '.' in audio_path else ''
+    out_ext = output_path.split('.')[-1].lower() if '.' in output_path else ''
+    if in_ext and in_ext == out_ext:
         audio_args = ["-c:a", "copy"]
     else:
-        audio_args = ["-acodec", "libmp3lame", "-q:a", "4"]
+        # When re-encoding, choose an appropriate codec for the desired output container
+        if out_ext == "mp3":
+            audio_args = ["-acodec", "libmp3lame", "-q:a", "4"]
+        elif out_ext in ("m4a", "mp4", "aac"):
+            # AAC is the typical codec for M4A/MP4/AAC containers
+            audio_args = ["-acodec", "aac", "-b:a", "192k"]
+        elif out_ext in ("webm", "mkv"):
+            # Opus is commonly used in WebM/MKV containers
+            audio_args = ["-acodec", "libopus", "-b:a", "96k"]
+        elif out_ext == "ogg":
+            audio_args = ["-acodec", "libvorbis", "-b:a", "128k"]
+        else:
+            # Fallback to MP3 if the extension is unknown
+            audio_args = ["-acodec", "libmp3lame", "-q:a", "4"]
 
     cmd = [
         "ffmpeg", "-y",
