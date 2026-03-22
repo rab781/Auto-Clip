@@ -1,3 +1,8 @@
+## 2026-03-24 - DoS via Excessive Input Length
+**Vulnerability:** The application was vulnerable to Denial of Service (DoS) attacks because the user-provided URL was not length-limited before passing it to parsing logic and external libraries (`yt-dlp`). An attacker could provide a massive payload string masquerading as a URL, consuming excessive memory and CPU during validation and execution.
+**Learning:** Input validation must include reasonable length restrictions prior to complex string manipulations or parsing. Even if subsequent validation is strict, the initial parsing or regular expression matching of multi-megabyte strings can hang or crash the application.
+**Prevention:** Always enforce a maximum length limit on user input (e.g., `len(url) > 2000` for URLs) immediately upon receiving it and before processing it further.
+
 ## 2026-02-12 - SSRF via yt-dlp
 **Vulnerability:** yt-dlp can access internal network services (SSRF) via generic HTTP extractor. The application accepted any URL, exposing internal services to potential attackers.
 **Learning:** CLI tools like yt-dlp are powerful and can be used for SSRF if input is not validated.

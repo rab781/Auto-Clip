@@ -18,6 +18,9 @@ def _validate_youtube_url(url: str):
     """
     Validate that the URL is a legitimate YouTube URL to prevent SSRF/local file access.
     """
+    if len(url) > 2000:
+        raise ValueError("Security validation failed: URL length exceeds maximum allowed limit (2000 characters).")
+
     try:
         parsed = urlparse(url)
         if parsed.scheme not in ["http", "https"]:
