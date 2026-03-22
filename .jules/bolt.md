@@ -34,3 +34,7 @@
 ## 2025-02-18 - [Optimization] Divmod over sequential arithmetic
 **Learning:** In tight loops like calculating formatted timestamps for thousands of subtitle frames or segments, doing floating point math (`round()`), sequential floor division (`//`), and modulo operations (`%`) is computationally intensive. Replacing these with `int()` rounding and iterative built-in `divmod()` tuple unpacking speeds up calculations by roughly ~10%, adding up substantially when executed repeatedly.
 **Action:** When converting time or generating timestamps, prefer `divmod()` on integers over chaining `//` and `%` math.
+
+## 2025-02-18 - [Optimization] Avoid O(N²) String Concatenation in AI Transcription Loop
+**Learning:** Using the `+=` operator for string concatenation inside a loop over thousands of items (e.g., aggregating transcribed text chunks) causes repeated memory reallocation, making it an O(N²) operation that can block the main thread and significantly degrade performance. Replacing it with list accumulation combined with `"".join()` transforms the operation into an O(N) process, resulting in vastly improved efficiency.
+**Action:** Always use `"".join()` with list comprehensions or generators instead of `+=` when accumulating strings inside loops.
