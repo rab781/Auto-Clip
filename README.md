@@ -7,111 +7,113 @@
 
 ## Why This Exists
 
-Creating short-form content (TikToks, Reels, Shorts) from long-form videos is a highly manual, time-consuming process. Creators have to download the video, manually scrub to find engaging moments, crop to a 9:16 aspect ratio, and painfully add word-by-word animated captions to keep viewer retention high. Auto-Clip Bot automates this entire pipeline using AI for transcription, clip selection, and automated FFmpeg processing, turning a multi-hour chore into a single terminal command.
+Creating short-form content from long-form videos burns hours of your time. You must manually download videos, scrub timelines to find engaging moments, reframe the video for mobile screens, and painstakingly sync word-by-word captions to maintain viewer retention. Auto-Clip Bot completely eliminates this chore. It automates the entire pipeline from transcription to clip selection, turning hours of tedious video editing into a single terminal command.
 
 ## Quick Start
 
 ```bash
-# Clone the repository
 git clone https://github.com/yourusername/auto-clip-bot.git
 cd auto-clip-bot
-
-# Install dependencies
 pip install -r content-bot/requirements.txt
-
-# Set up your environment variables
 cp .env.example .env
 # Edit .env and add your CHUTES_API_KEY
-
-# Run the bot on a YouTube video
 python content-bot/main.py https://www.youtube.com/watch?v=YOUR_VIDEO_ID
 ```
 
-Your processed, vertical video clips with captions will be saved in `content-bot/assets/output/`.
+After running this command, you receive fully processed, vertical video clips with captions in the `content-bot/assets/output/` directory.
 
 ## Installation
 
 **Prerequisites**:
-- Python 3.8 or higher
+- Python 3.8+
 - [FFmpeg](https://ffmpeg.org/download.html) installed and available in your system's PATH.
 
-### 1. Clone and Setup Environment
-
+First, clone the repository and navigate into it:
 ```bash
 git clone https://github.com/yourusername/auto-clip-bot.git
 cd auto-clip-bot
+```
 
-# Recommended: Create a virtual environment
+Next, create and activate a virtual environment to keep your dependencies isolated:
+```bash
 python -m venv venv
-source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+source venv/bin/activate  # On Windows, you use `venv\Scripts\activate`
+```
 
+Then, install the required Python packages:
+```bash
 pip install -r content-bot/requirements.txt
 ```
 
-### 2. Configure API Keys
-
-The bot uses [Chutes.ai](https://chutes.ai) for the DeepSeek LLM.
-
-1. Create a `.env` file in the root directory.
-2. Add your API key:
-   ```env
-   CHUTES_API_KEY=your_chutes_api_key_here
-   ```
+Finally, configure your API keys. You need a [Chutes.ai](https://chutes.ai) API key to power the DeepSeek LLM for analysis. Create a `.env` file in the root directory and add your key:
+```bash
+echo "CHUTES_API_KEY=your_chutes_api_key_here" > .env
+```
 
 ## Usage
 
 ### Basic Example
 
-The most common use case is processing a single YouTube video. The bot will download the audio, transcribe it, analyze it for the most engaging moments, and process those moments into vertical clips.
+You generate clips from a single YouTube video by running the main pipeline. The bot downloads the audio, transcribes it, identifies the most engaging moments, and renders vertical clips directly to your output directory.
 
 ```bash
 python content-bot/main.py https://youtu.be/dQw4w9WgXcQ
 ```
 
+### Configuration
+
+You configure the bot's behavior by modifying `content-bot/config.py`.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `output_width` | `number` | `1080` | Width of the final vertical clip |
+| `output_height` | `number` | `1920` | Height of the final vertical clip |
+| `min_clip_duration` | `number` | `15` | Minimum duration in seconds for a generated clip |
+| `max_clip_duration` | `number` | `300` | Maximum duration in seconds for a complete narrative arc |
+| `max_filesize` | `string` | `"500MB"` | Maximum video size to download (DoS protection) |
+| `font` | `string` | `"Segoe UI Semibold"` | Font used for the word-level captions |
+| `style` | `string` | `"animated"` | Caption style (`animated` for ASS highlighting, `simple` for standard SRT) |
+| `highlight_color` | `string` | `"&H00FFFF"` | Color for the currently spoken word (ASS Hex, BGR format: Yellow) |
+
 ### Advanced Usage
 
 #### Dry Run Mode
-If you want to see what clips the AI *would* select without actually spending the time to download and process the video files, use the `--dry-run` flag. This is excellent for testing and tweaking the AI selection logic.
+You evaluate which clips the AI selects without spending time or bandwidth to download and process the video files. Use the `--dry-run` flag to test and tweak the AI selection logic.
 
 ```bash
 python content-bot/main.py --url https://youtu.be/dQw4w9WgXcQ --dry-run
 ```
 
 #### Debug Mode
-If you encounter an issue and need detailed stack traces for troubleshooting:
+You capture detailed stack traces for troubleshooting when an issue occurs by using the `--debug` flag.
 
 ```bash
 python content-bot/main.py https://youtu.be/dQw4w9WgXcQ --debug
 ```
-
-### Configuration
-
-You can customize the bot's behavior by modifying `content-bot/config.py`.
-
-| Option Category | Setting | Default | Description |
-|-----------------|---------|---------|-------------|
-| **Video Settings** | `output_width` | `1080` | Width of the final vertical clip. |
-| **Video Settings** | `output_height` | `1920` | Height of the final vertical clip. |
-| **Video Settings** | `min_clip_duration` | `15` | Minimum duration (seconds) for a generated clip. |
-| **Video Settings** | `max_clip_duration` | `300` | Maximum duration (seconds) for a complete narrative arc. |
-| **Download Limits** | `max_filesize` | `500MB` | Maximum video size to download (DoS protection). |
-| **Caption Styling** | `font` | `"Segoe UI Semibold"` | Font used for the word-level captions. |
-| **Caption Styling** | `style` | `"animated"` | Caption style (`animated` for ASS highlighting, `simple` for standard SRT). |
-| **Caption Styling** | `highlight_color` | `"&H00FFFF"` | Color for the currently spoken word (ASS Hex, BGR format: Yellow). |
 
 ## Architecture Overview
 
 The pipeline executes in several distinct phases:
 1. **Info & Download**: Extracts metadata via `yt-dlp` and downloads the audio stream.
 2. **Transcription**: Uses Whisper (`faster-whisper-large-v3-turbo-ct2`) to generate a highly accurate transcript with word-level timestamps.
-3. **AI Analysis**: Passes the transcript to an LLM (`DeepSeek-V3`) to identify narrative arcs, "hooks", and viral moments.
-4. **Processing**: Uses `ffmpeg-python` and optimized filter graphs to simultaneously crop the video (with face tracking fallback to center crop), burn in animated subtitles (`.ass`), and mix background music into a final `[vout]` stream.
+3. **AI Analysis**: Passes the transcript to an LLM (`DeepSeek-V3`) to identify narrative arcs, hooks, and viral moments.
+4. **Processing**: Uses `ffmpeg-python` and optimized filter graphs to simultaneously crop the video. It incorporates face tracking with a fallback to center crop, burns in animated subtitles (`.ass`), and mixes background music into a final `[vout]` stream.
+
+## Troubleshooting
+
+If you see `RuntimeError: Missing CHUTES_API_KEY`, ensure you create a `.env` file in the project root containing `CHUTES_API_KEY=your_key_here`.
+
+If you see `ffmpeg: command not found`, you do not have FFmpeg installed or it is not in your system's PATH. Install FFmpeg from [the official website](https://ffmpeg.org/download.html) and verify your installation by running `ffmpeg -version` in your terminal.
+
+If you see `ModuleNotFoundError: No module named 'yt_dlp'`, ensure you activate your virtual environment and run `pip install -r content-bot/requirements.txt` from the project root.
+
+If your download hangs or fails on large videos, you likely hit a resource limit or the video exceeds the configured size. Adjust the `max_filesize` setting in `content-bot/config.py` or try processing a shorter video.
 
 ## Contributing
 
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+You contribute to the project by opening issues and submitting pull requests. For major changes, please open an issue first to discuss your proposed changes.
 
-Please make sure to update tests as appropriate. Run tests via:
+Ensure you run tests before submitting your code:
 ```bash
 PYTHONPATH=content-bot python3 content-bot/run_tests.py
 ```
