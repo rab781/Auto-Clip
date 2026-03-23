@@ -115,5 +115,16 @@ class TestSecurityDownloader(unittest.TestCase):
                 get_video_info(url)
             self.assertIn("Security validation failed", str(cm.exception))
 
+    def test_url_length_validation(self):
+        """
+        Verify that overly long URLs are rejected to prevent DoS via resource exhaustion.
+        """
+        long_url = "https://www.youtube.com/watch?v=" + ("a" * 2000)
+
+        with self.assertRaises(ValueError) as context:
+            get_video_info(long_url)
+
+        self.assertIn("URL exceeds maximum allowed length of 2000 characters", str(context.exception))
+
 if __name__ == '__main__':
     unittest.main()

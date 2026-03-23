@@ -55,3 +55,8 @@
 **Vulnerability:** External CLI tools like `ffmpeg` or `ffprobe` (which do not support `--` as a delimiter) are susceptible to SSRF, path traversal, or argument injection (where a path starting with a hyphen `-` could be misinterpreted as a flag).
 **Learning:** Prefixing a file path simply with `file:` in `subprocess.run` may not sufficiently prevent argument injection if the path evaluates to a relative path containing a hyphen or allows directory traversal via relative dots.
 **Prevention:** All user-controlled file paths (inputs and outputs) passed to external tools without a dedicated path delimiter must be converted to absolute paths using `os.path.abspath()` and prepended with the `file:` protocol (e.g., `f'file:{os.path.abspath(path)}'`).
+
+## 2026-03-24 - DoS via URL Length Resource Exhaustion
+**Vulnerability:** The application was passing user-provided URLs to external utilities like `urlparse` and `yt-dlp` without length validation. An attacker could provide a massive string (e.g., millions of characters) masquerading as a URL, causing resource exhaustion (CPU/Memory spikes) during string parsing, regex matching, or process invocation, leading to a Denial of Service.
+**Learning:** Input validation must not only check the format (e.g., schemes and domains) but also strictly limit the size of the input to protect against resource exhaustion attacks that occur *before* the input even reaches the external service.
+**Prevention:** Always enforce a reasonable maximum length (e.g., 2000 characters for standard URLs) on all user-provided strings before performing complex parsing, regex operations, or passing them to external libraries.
