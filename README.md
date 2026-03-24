@@ -16,8 +16,8 @@ git clone https://github.com/yourusername/auto-clip-bot.git
 cd auto-clip-bot
 pip install -r content-bot/requirements.txt
 cp .env.example .env
-# Edit .env and replace with your actual key
-echo "CHUTES_API_KEY=your_key_here" >> .env
+# Open .env in a text editor and set your actual key, for example:
+# CHUTES_API_KEY=your_real_key_here
 ```
 
 After adding your key, run the bot:
