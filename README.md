@@ -16,12 +16,14 @@ git clone https://github.com/yourusername/auto-clip-bot.git
 cd auto-clip-bot
 pip install -r content-bot/requirements.txt
 cp .env.example .env
-# Open .env in a text editor and set your actual key, for example:
-# CHUTES_API_KEY=your_real_key_here
 ```
 
-After adding your key, run the bot:
+Set your API key in `.env`:
+```env
+CHUTES_API_KEY=your_real_key_here
+```
 
+Run the bot:
 ```bash
 python content-bot/main.py https://www.youtube.com/watch?v=dQw4w9WgXcQ
 ```
@@ -91,28 +93,14 @@ Show detailed stack traces for troubleshooting if you encounter an issue.
 python content-bot/main.py https://youtu.be/dQw4w9WgXcQ --debug
 ```
 
-## Tutorials
+## Documentation
 
-See [docs/tutorial-first-clip.md](docs/tutorial-first-clip.md) for a step-by-step guide to generating your first clip.
-
-## Explanation
-
-### Architecture Overview
-
-The pipeline executes in several distinct phases:
-1. **Info & Download**: Extracts metadata via `yt-dlp` and downloads the audio stream.
-2. **Transcription**: Uses Whisper (`faster-whisper-large-v3-turbo-ct2`) to generate a highly accurate transcript with word-level timestamps.
-3. **AI Analysis**: Passes the transcript to an LLM (`DeepSeek-V3`) to identify narrative arcs, "hooks", and viral moments.
-4. **Processing**: Uses `ffmpeg-python` and optimized filter graphs to simultaneously crop the video (with face tracking fallback to center crop), burn in animated subtitles (`.ass`), and mix background music into a final `[vout]` stream.
+- [Tutorial: Your First Viral Clip](docs/tutorial-first-clip.md)
+- [Explanation: Architecture Overview](docs/explanation-architecture.md)
 
 ## Contributing
 
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
-
-Run tests via:
-```bash
-PYTHONPATH=content-bot python3 content-bot/run_tests.py
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## License
 
