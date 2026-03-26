@@ -84,7 +84,7 @@ def download_audio_only(url: str, output_dir: str) -> str:
             return output_path
 
     except Exception as e:
-        raise Exception(f"yt-dlp error: {str(e)}")
+        raise Exception(f"yt-dlp error: {str(e)[:500]}")
 
 
 def download_video_segment(url: str, start: float, end: float, output_path: str) -> str:
@@ -134,7 +134,7 @@ def download_video_segment(url: str, start: float, end: float, output_path: str)
         return str(output_path)
 
     except Exception as e:
-        raise Exception(f"yt-dlp error: {str(e)}")
+        raise Exception(f"yt-dlp error: {str(e)[:500]}")
 
 
 def get_video_info(url: str) -> dict:
@@ -173,7 +173,7 @@ def get_video_info(url: str) -> dict:
             "thumbnail": info.get("thumbnail", ""),
         }
     except Exception as e:
-        raise Exception(f"yt-dlp error: {str(e)}")
+        raise Exception(f"yt-dlp error: {str(e)[:500]}")
 
 
 def _seconds_to_hhmmss(seconds: float) -> str:

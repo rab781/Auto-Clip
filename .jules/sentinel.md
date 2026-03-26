@@ -55,3 +55,8 @@
 **Vulnerability:** External CLI tools like `ffmpeg` or `ffprobe` (which do not support `--` as a delimiter) are susceptible to SSRF, path traversal, or argument injection (where a path starting with a hyphen `-` could be misinterpreted as a flag).
 **Learning:** Prefixing a file path simply with `file:` in `subprocess.run` may not sufficiently prevent argument injection if the path evaluates to a relative path containing a hyphen or allows directory traversal via relative dots.
 **Prevention:** All user-controlled file paths (inputs and outputs) passed to external tools without a dedicated path delimiter must be converted to absolute paths using `os.path.abspath()` and prepended with the `file:` protocol (e.g., `f'file:{os.path.abspath(path)}'`).
+
+## 2024-05-26 - DoS via Log Flooding and Information Exposure
+**Vulnerability:** Exception payloads returned by external tools (like `yt-dlp` or API calls) were thrown or logged without length constraints. Attackers could manipulate input to cause these dependencies to fail and return massive error payloads (e.g., large HTML documents), resulting in log flooding, resource exhaustion, or accidental exposure of massive amounts of internal tool state.
+**Learning:** External error payloads are completely untrusted inputs. Taking large error responses verbatim exposes an application to Information Exposure and Denial of Service (DoS) attacks via memory or log exhaustion.
+**Prevention:** Always string-slice and truncate raw error messages (e.g., `str(e)[:500]`) before raising them internally or logging them.
