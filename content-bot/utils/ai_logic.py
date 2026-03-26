@@ -574,7 +574,7 @@ HANYA OUTPUT JSON, tanpa penjelasan tambahan."""
     )
     
     if response.status_code != 200:
-        safe_err = _sanitize_error_msg(response.text)
+        safe_err = _sanitize_error_msg(response.text)[:500]
         raise Exception(f"LLM API error: {safe_err}")
     
     result = response.json()
