@@ -18,4 +18,4 @@ sys.modules['requests'] = MagicMock()
 
 if __name__ == "__main__":
     # Execute pytest on the tests directory
-    sys.exit(pytest.main(["tests"]))
+    sys.exit(pytest.main([str(Path(__file__).parent / "tests")]))

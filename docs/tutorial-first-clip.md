@@ -1,6 +1,6 @@
 # Tutorial: Your First Viral Clip in 10 Minutes
 
-**What you'll build**: A vertical short-form clip (like a TikTok, Reel, or Short) generated automatically from a long-form YouTube video. The final video will have smart cropping, dynamic word-by-word captions, and background music.
+**What you'll build**: A vertical short-form clip (like a TikTok, Reel, or Short) generated automatically from a long-form YouTube video. The final video has smart cropping, dynamic word-by-word captions, and background music.
 
 **What you'll learn**:
 - How to set up Auto-Clip Bot V2
@@ -16,7 +16,7 @@
 
 ## Step 1: Set Up Your Project
 
-First, clone the repository and set up your Python environment. This isolates the project's dependencies from your main system.
+First, clone the repository and set up your Python environment. You use a separate virtual environment to isolate the project's dependencies from your main system.
 
 ```bash
 git clone https://github.com/yourusername/auto-clip-bot.git
@@ -25,7 +25,9 @@ python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-You should see `(venv)` at the beginning of your terminal prompt.
+You see `(venv)` at the beginning of your terminal prompt.
+
+> **Tip**: If you see `Error: ENOENT` or path-related errors, ensure you are running these commands from the correct directory.
 
 ## Step 2: Install Dependencies and Configure Credentials
 
@@ -42,17 +44,17 @@ Open the `.env` file in your text editor and replace the placeholder with your a
 CHUTES_API_KEY=your_actual_api_key_here
 ```
 
-> **Tip**: If you see FFmpeg errors later, ensure you can run `ffmpeg -version` in your terminal.
+> **Tip**: If you see FFmpeg errors later, ensure you can run `ffmpeg -version` in your terminal. If the command fails, FFmpeg is not in your system PATH.
 
 ## Step 3: Run a Dry Run (Analysis Only)
 
-Before downloading large video files, analyze the video to see what the AI recommends. A dry run fetches the transcript, identifies narrative arcs, and prints potential clips without processing them.
+Before downloading large video files, analyze the video to see what the AI recommends. A dry run fetches the transcript, identifies narrative arcs, and prints potential clips without processing them. This saves time and bandwidth while tweaking selection parameters.
 
 ```bash
 python content-bot/main.py https://www.youtube.com/watch?v=dQw4w9WgXcQ --dry-run
 ```
 
-You should see output similar to this:
+You see output similar to this:
 
 ```
 [AUTO-CLIP BOT V2] Pipeline Starting
@@ -72,7 +74,7 @@ Now, remove the `--dry-run` flag to actually download, crop, caption, and render
 python content-bot/main.py https://www.youtube.com/watch?v=dQw4w9WgXcQ
 ```
 
-The bot will execute the full pipeline:
+The bot executes the full pipeline:
 1. Downloads the audio and transcribes it.
 2. Finds the most engaging narrative arcs.
 3. Downloads the specific video segments.
