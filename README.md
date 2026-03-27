@@ -7,7 +7,7 @@
 
 ## Why This Exists
 
-Creating short-form content from long-form videos is a highly manual, time-consuming process that requires downloading, scrubbing, cropping, and captioning. Auto-Clip Bot automates this entire pipeline, turning a multi-hour chore into a single terminal command so you can focus on publishing.
+Creating short-form content from long-form videos is a highly manual, time-consuming process that requires downloading, scrubbing, cropping, and captioning. Auto-Clip Bot automates this entire pipeline, turning a multi-hour chore into a single terminal command so you focus on publishing instead of editing.
 
 ## Quick Start
 
@@ -64,16 +64,7 @@ python content-bot/main.py https://youtu.be/dQw4w9WgXcQ
 
 Customize the bot's behavior by modifying `content-bot/config.py`.
 
-| Option | Category | Default | Description |
-|--------|----------|---------|-------------|
-| `output_width` | Video Settings | `1080` | Width of the final vertical clip. |
-| `output_height` | Video Settings | `1920` | Height of the final vertical clip. |
-| `min_clip_duration` | Video Settings | `15` | Minimum duration (seconds) for a generated clip. |
-| `max_clip_duration` | Video Settings | `300` | Maximum duration (seconds) for a complete narrative arc. |
-| `max_filesize` | Download Limits | `500MB` | Maximum video size to download (DoS protection). |
-| `font` | Caption Styling | `"Segoe UI Semibold"` | Font used for the word-level captions. |
-| `style` | Caption Styling | `"animated"` | Caption style (`animated` for ASS highlighting, `simple` for standard SRT). |
-| `highlight_color` | Caption Styling | `"&H00FFFF"` | Color for the currently spoken word (ASS Hex, BGR format: Yellow). |
+See [full Configuration reference →](docs/reference-configuration.md)
 
 ### Advanced Usage
 
@@ -93,9 +84,15 @@ Show detailed stack traces for troubleshooting if you encounter an issue.
 python content-bot/main.py https://youtu.be/dQw4w9WgXcQ --debug
 ```
 
+## API Reference
+
+See [full Configuration reference →](docs/reference-configuration.md)
+
 ## Documentation
 
 - [Tutorial: Your First Viral Clip](docs/tutorial-first-clip.md)
+- [How-To: Configure the Bot](docs/how-to-configure.md)
+- [Reference: Configuration Options](docs/reference-configuration.md)
 - [Explanation: Architecture Overview](docs/explanation-architecture.md)
 
 ## Contributing
