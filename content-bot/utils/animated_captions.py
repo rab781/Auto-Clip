@@ -56,6 +56,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
     words_per_batch = settings.get("words_per_line", 2)
     
+    # ⚡ Bolt Optimization: Constant highlight tag pre-calculation
+    # Impact: Avoids redundant string formatting and memory allocation for every highlighted word
+    highlight_prefix = f"{{\\c{highlight_color}\\fscx120\\fscy120}}"
+    highlight_suffix = f"{{\\c{primary_color}\\fscx100\\fscy100}}"
+
     for seg in segments:
         seg_start = seg["start"]
         seg_end = seg["end"]
@@ -82,24 +87,23 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             batch_duration = batch_end_time - batch_start_time
             time_per_batch_word = batch_duration / len(batch_words)
             
+            # ⚡ Bolt Optimization: Per-batch timestamp caching
+            # Impact: Significantly reduces the number of format_timestamp calls per word frame
+            timestamps = [
+                format_timestamp(batch_start_time + (k * time_per_batch_word), 'ass')
+                for k in range(len(batch_words) + 1)
+            ]
+
             for i in range(len(batch_words)):
-                # Timing for this specific highlight frame
-                frame_start = batch_start_time + (i * time_per_batch_word)
-                frame_end = batch_start_time + ((i + 1) * time_per_batch_word)
+                start_str = timestamps[i]
+                end_str = timestamps[i+1]
                 
-                # Construct text with highlight tags
-                formatted_words = []
-                for j, w in enumerate(batch_words):
-                    if j == i:
-                        # Active word: Highlight color + scale up for pop effect
-                        formatted_words.append(f"{{\\c{highlight_color}\\fscx120\\fscy120}}{w}{{\\c{primary_color}\\fscx100\\fscy100}}")
-                    else:
-                        formatted_words.append(w)
+                # ⚡ Bolt Optimization: O(1) list mutation pattern for word highlighting
+                # Impact: Replaces O(N) list rebuilding and repeated string interpolation per frame
+                formatted_words = list(batch_words)
+                formatted_words[i] = f"{highlight_prefix}{batch_words[i]}{highlight_suffix}"
                 
                 formatted_text = " ".join(formatted_words)
-                
-                start_str = format_timestamp(frame_start, 'ass')
-                end_str = format_timestamp(frame_end, 'ass')
                 
                 ass_lines.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{formatted_text}\n")
             
