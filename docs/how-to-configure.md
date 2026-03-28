@@ -11,13 +11,17 @@ You configure the bot by editing the `content-bot/config.py` file. Open this fil
 To change the styling of your subtitles, modify the `CAPTION_SETTINGS` dictionary.
 
 You can select between `animated` or `simple` styles, change the `font`, or update the `highlight_color`.
+For brevity, the example below only shows a few commonly customized keys; refer to `content-bot/config.py` for the full set of supported caption options (font size, colors, outline/shadow, positioning, etc.).
 
 ```python
 # content-bot/config.py
+# NOTE: Partial example — only commonly changed keys are shown here.
+# Other CAPTION_SETTINGS options (font_size, colors, outline/shadow,
+# positioning, etc.) remain at their defaults defined in config.py.
 CAPTION_SETTINGS = {
-    "font": "Arial", # Ensure the font is installed on your system
+    "font": "Arial",  # Ensure the font is installed on your system
     "style": "animated",
-    "highlight_color": "&H00FFFF" # Yellow highlight
+    "highlight_color": "&H00FFFF"  # Yellow highlight
 }
 ```
 
