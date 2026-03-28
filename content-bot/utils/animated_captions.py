@@ -56,6 +56,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
     words_per_batch = settings.get("words_per_line", 2)
     
+    # ⚡ Bolt Optimization: Constant highlight tags pre-calculated
+    # Impact: Evaluates format strings once per file rather than per frame.
+    active_prefix = f"{{\\c{highlight_color}\\fscx120\\fscy120}}"
+    active_suffix = f"{{\\c{primary_color}\\fscx100\\fscy100}}"
+
     for seg in segments:
         seg_start = seg["start"]
         seg_end = seg["end"]
@@ -80,26 +85,26 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             batch_end_time = seg_start + (batch_end_idx * time_per_word)
             
             batch_duration = batch_end_time - batch_start_time
-            time_per_batch_word = batch_duration / len(batch_words)
+            num_batch_words = len(batch_words)
+            time_per_batch_word = batch_duration / num_batch_words
             
-            for i in range(len(batch_words)):
-                # Timing for this specific highlight frame
-                frame_start = batch_start_time + (i * time_per_batch_word)
-                frame_end = batch_start_time + ((i + 1) * time_per_batch_word)
-                
-                # Construct text with highlight tags
-                formatted_words = []
-                for j, w in enumerate(batch_words):
-                    if j == i:
-                        # Active word: Highlight color + scale up for pop effect
-                        formatted_words.append(f"{{\\c{highlight_color}\\fscx120\\fscy120}}{w}{{\\c{primary_color}\\fscx100\\fscy100}}")
-                    else:
-                        formatted_words.append(w)
+            # ⚡ Bolt Optimization: Pre-calculate per-batch timestamps
+            # Impact: Reduces duplicate string formatting operations.
+            frame_timestamps = []
+            for i in range(num_batch_words + 1):
+                t = batch_start_time + (i * time_per_batch_word)
+                frame_timestamps.append(format_timestamp(t, 'ass'))
+
+            for i in range(num_batch_words):
+                # ⚡ Bolt Optimization: O(1) list mutation instead of loop building
+                # Impact: Replaces sequential loop append with rapid shallow copy and targeted mutation.
+                formatted_words = list(batch_words)
+                formatted_words[i] = f"{active_prefix}{batch_words[i]}{active_suffix}"
                 
                 formatted_text = " ".join(formatted_words)
                 
-                start_str = format_timestamp(frame_start, 'ass')
-                end_str = format_timestamp(frame_end, 'ass')
+                start_str = frame_timestamps[i]
+                end_str = frame_timestamps[i+1]
                 
                 ass_lines.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{formatted_text}\n")
             
