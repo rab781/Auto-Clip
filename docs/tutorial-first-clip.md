@@ -95,5 +95,6 @@ Check the `content-bot/assets/output/` directory for your final `.mp4` files, th
 
 ## Next Steps
 
-- **Reference**: Modify behavior via [Configuration](../README.md#configuration) in `content-bot/config.py`.
-- **Advanced**: Try tweaking the `min_clip_duration` and `max_clip_duration` to fit different platforms.
+- [Reference: Configuration Options](reference-configuration.md)
+- [How-to: Configure the Bot](how-to-configure.md)
+- [Explanation: Architecture Overview](explanation-architecture.md)
