@@ -1,6 +1,6 @@
 # Reference: Configuration Options
 
-This document lists all configuration options available in `content-bot/config.py`. You modify these options to customize the bot's behavior.
+This document describes the most commonly used configuration options from `content-bot/config.py`. For the complete and authoritative list of options, including any that are not covered here, refer directly to `content-bot/config.py` and its inline comments. You modify these options to customize the bot's behavior.
 
 ## Video Settings
 
