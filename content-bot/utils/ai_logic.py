@@ -123,7 +123,7 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
     temp_dir.mkdir(mode=0o700, exist_ok=True)
     
     all_segments = []
-    full_text = ""
+    full_text_parts = []
     
     # Prepare tasks
     tasks = []
@@ -190,7 +190,13 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
                 seg["end"] += start_ts
                 all_segments.append(seg)
 
-        full_text += " " + result.get("text", "")
+        if "text" in result and result["text"]:
+            full_text_parts.append(result["text"])
+
+    # ⚡ Bolt Optimization: Use join() instead of += for O(N) string concatenation
+    # Impact: Eliminates O(N²) memory reallocation overhead when building large transcripts
+    # Measurement: Compare memory usage and execution time of chunk merging for a long video
+    full_text = " ".join(full_text_parts)
     
     # Clean up temp directory
     try:
