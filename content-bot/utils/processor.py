@@ -195,13 +195,19 @@ def generate_srt_from_segments(segments: list, output_path: str, words_per_line:
         else:
             continue
         
+        num_groups = len(word_groups)
+
+        # ⚡ Bolt Optimization: Per-group timestamp caching
+        # Impact: Reduces format_timestamp calls from 2*N to N+1 by reusing the end timestamp of one group as the start of the next.
+        # Measurement: Count format_timestamp calls before and after optimization.
+        timestamps = [
+            format_timestamp(min(seg_start + (k * time_per_group), seg_end), 'srt')
+            for k in range(num_groups + 1)
+        ]
+
         for i, group in enumerate(word_groups):
-            group_start = seg_start + (i * time_per_group)
-            group_end = seg_start + ((i + 1) * time_per_group)
-            group_end = min(group_end, seg_end)
-            
-            start_str = format_timestamp(group_start, 'srt')
-            end_str = format_timestamp(group_end, 'srt')
+            start_str = timestamps[i]
+            end_str = timestamps[i+1]
             
             srt_entries.append(f"{entry_index}\n{start_str} --> {end_str}\n{group}\n\n")
             entry_index += 1
@@ -563,11 +569,12 @@ def create_final_clip(
         caption_text = caption_title
     
     # Also add metadata below for reference
-    caption_text += f"\n\n--- METADATA ---\n"
+    metadata_lines = [f"\n\n--- METADATA ---"]
     if hook:
-        caption_text += f"🪝 Hook: {hook}\n"
-    caption_text += f"📖 {reason}\n"
-    caption_text += f"🎬 Type: {narrative_type} | Mood: {mood}\n"
+        metadata_lines.append(f"🪝 Hook: {hook}")
+    metadata_lines.append(f"📖 {reason}")
+    metadata_lines.append(f"🎬 Type: {narrative_type} | Mood: {mood}\n")
+    caption_text += "\n".join(metadata_lines)
     
     with open(caption_path, "w", encoding="utf-8") as f:
         f.write(caption_text)
