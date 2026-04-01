@@ -157,7 +157,7 @@ def convert_to_vertical(video_path: str, output_path: str, subtitle_path: str = 
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     
     if result.returncode != 0:
-        raise Exception(f"FFmpeg error: {result.stderr}")
+        raise Exception(f"FFmpeg error: {result.stderr[-500:]}")
     
     print(f"[DONE] Vertical video created: {output_path}")
     return str(output_path)
@@ -243,7 +243,7 @@ def burn_captions(video_path: str, srt_path: str, output_path: str) -> str:
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     
     if result.returncode != 0:
-        print("! Trying simpler subtitle format...")
+        print(f"! Trying simpler subtitle format... (Previous error: {result.stderr[-200:]})")
         # Fallback uses simpler filter
         srt_escaped = str(srt_path).replace("\\", "/").replace(":", "\\:").replace("'", r"'\''")
         cmd = [
@@ -260,7 +260,7 @@ def burn_captions(video_path: str, srt_path: str, output_path: str) -> str:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
         
         if result.returncode != 0:
-            raise Exception(f"FFmpeg error: {result.stderr}")
+            raise Exception(f"FFmpeg error: {result.stderr[-500:]}")
     
     print(f"[DONE] Captions burned: {output_path}")
     return str(output_path)
@@ -293,7 +293,7 @@ def add_background_music(video_path: str, bgm_path: str, output_path: str,
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     
     if result.returncode != 0:
-        raise Exception(f"FFmpeg error: {result.stderr}")
+        raise Exception(f"FFmpeg error: {result.stderr[-500:]}")
     
     print(f"[DONE] BGM added: {output_path}")
     return str(output_path)
@@ -323,7 +323,7 @@ def generate_thumbnail(video_path: str, output_path: str, timestamp: float = Non
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     
     if result.returncode != 0:
-        raise Exception(f"FFmpeg error: {result.stderr}")
+        raise Exception(f"FFmpeg error: {result.stderr[-500:]}")
     
     print(f"[DONE] Thumbnail created: {output_path}")
     return str(output_path)
@@ -434,7 +434,7 @@ def _create_final_clip_optimized(
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
 
     if result.returncode != 0:
-        raise Exception(f"FFmpeg error: {result.stderr}")
+        raise Exception(f"FFmpeg error: {result.stderr[-500:]}")
 
     return str(final_video_path)
 
