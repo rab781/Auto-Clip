@@ -123,7 +123,11 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
     temp_dir.mkdir(mode=0o700, exist_ok=True)
     
     all_segments = []
-    full_text = ""
+
+    # ⚡ Bolt Optimization: Avoid O(N²) string concatenation
+    # Replaced `full_text += ...` with a list accumulation and `"".join()`
+    # to significantly speed up text formatting for large transcripts.
+    full_text_parts = []
     
     # Prepare tasks
     tasks = []
@@ -190,7 +194,10 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
                 seg["end"] += start_ts
                 all_segments.append(seg)
 
-        full_text += " " + result.get("text", "")
+        if "text" in result and result["text"]:
+            full_text_parts.append(result["text"])
+
+    full_text = " ".join(full_text_parts).strip()
     
     # Clean up temp directory
     try:
