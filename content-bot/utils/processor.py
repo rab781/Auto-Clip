@@ -194,14 +194,18 @@ def generate_srt_from_segments(segments: list, output_path: str, words_per_line:
             time_per_group = seg_duration / len(word_groups)
         else:
             continue
+
+        # ⚡ Bolt Optimization: Pre-calculate timestamp array
+        # Impact: Reduces format_timestamp calls from 2N to N+1
+        num_groups = len(word_groups)
+        timestamps = []
+        for i in range(num_groups + 1):
+            ts = seg_start + (i * time_per_group)
+            timestamps.append(format_timestamp(min(ts, seg_end), 'srt'))
         
         for i, group in enumerate(word_groups):
-            group_start = seg_start + (i * time_per_group)
-            group_end = seg_start + ((i + 1) * time_per_group)
-            group_end = min(group_end, seg_end)
-            
-            start_str = format_timestamp(group_start, 'srt')
-            end_str = format_timestamp(group_end, 'srt')
+            start_str = timestamps[i]
+            end_str = timestamps[i+1]
             
             srt_entries.append(f"{entry_index}\n{start_str} --> {end_str}\n{group}\n\n")
             entry_index += 1
