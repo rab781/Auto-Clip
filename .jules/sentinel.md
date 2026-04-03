@@ -60,3 +60,8 @@
 **Vulnerability:** Exception payloads returned by external tools (like `yt-dlp` or API calls) were thrown or logged without length constraints. Attackers could manipulate input to cause these dependencies to fail and return massive error payloads (e.g., large HTML documents), resulting in log flooding, resource exhaustion, or accidental exposure of massive amounts of internal tool state.
 **Learning:** External error payloads are completely untrusted inputs. Taking large error responses verbatim exposes an application to Information Exposure and Denial of Service (DoS) attacks via memory or log exhaustion.
 **Prevention:** Always string-slice and truncate raw error messages (e.g., `str(e)[:500]`) before raising them internally or logging them.
+
+## 2026-04-18 - FFmpeg Log Flooding DoS and Information Loss
+**Vulnerability:** The application was catching FFmpeg errors and either including the entire `stderr` or truncating it from the beginning (e.g., `stderr[:200]`). This leads to two issues: full capture causes log flooding DoS for massive traces, and beginning-truncation loses the actual failure reason (which FFmpeg prints at the end of the trace).
+**Learning:** Error outputs from tools like FFmpeg can be extremely verbose, requiring truncation to prevent log exhaustion. However, the relevant error message is located at the *end* of the stderr stream.
+**Prevention:** Always truncate FFmpeg error output by slicing from the end (e.g., `result.stderr[-500:]`) to safely capture the actual error while preventing DoS.
