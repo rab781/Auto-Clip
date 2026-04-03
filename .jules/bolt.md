@@ -34,3 +34,7 @@
 ## 2025-02-18 - [Optimization] Divmod over sequential arithmetic
 **Learning:** In tight loops like calculating formatted timestamps for thousands of subtitle frames or segments, doing floating point math (`round()`), sequential floor division (`//`), and modulo operations (`%`) is computationally intensive. Replacing these with `int()` rounding and iterative built-in `divmod()` tuple unpacking speeds up calculations by roughly ~10%, adding up substantially when executed repeatedly.
 **Action:** When converting time or generating timestamps, prefer `divmod()` on integers over chaining `//` and `%` math.
+
+## 2025-02-19 - [Optimization] Avoid Redundant Timestamp Formatting for Contiguous Sequences
+**Learning:** In subtitle generation or video clipping routines, adjacent segments (or word groups) often share continuous boundaries—the end time of one segment is exactly the start time of the next. Formatting individual start and end times in a loop forces 2N expensive timestamp calculation/string format calls. Pre-calculating a single array of boundary timestamps reduces this to N+1 calls, drastically cutting down repetitive formatting overhead.
+**Action:** When generating continuous time sequences (like word groups in SRT), pre-calculate an array of boundary timestamps once and use indices (e.g., `timestamps[i]` and `timestamps[i+1]`) to access start and end times, effectively halving formatting workload.
