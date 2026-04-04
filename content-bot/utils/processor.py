@@ -167,6 +167,9 @@ def generate_srt_from_segments(segments: list, output_path: str, words_per_line:
     """
     Generate SRT file dari Whisper segments dengan word-level timing.
     """
+    if words_per_line <= 0:
+        raise ValueError("words_per_line must be greater than 0")
+
     output_path = Path(output_path)
     output_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     
@@ -195,13 +198,16 @@ def generate_srt_from_segments(segments: list, output_path: str, words_per_line:
         else:
             continue
         
+        # ⚡ Bolt Optimization: Pre-calculate timestamps to reduce format_timestamp calls from 2N to N+1
+        # Impact: Reduces redundant formatting calls and improves performance.
+        timestamps = [
+            format_timestamp(min(seg_start + (k * time_per_group), seg_end), 'srt')
+            for k in range(len(word_groups) + 1)
+        ]
+
         for i, group in enumerate(word_groups):
-            group_start = seg_start + (i * time_per_group)
-            group_end = seg_start + ((i + 1) * time_per_group)
-            group_end = min(group_end, seg_end)
-            
-            start_str = format_timestamp(group_start, 'srt')
-            end_str = format_timestamp(group_end, 'srt')
+            start_str = timestamps[i]
+            end_str = timestamps[i+1]
             
             srt_entries.append(f"{entry_index}\n{start_str} --> {end_str}\n{group}\n\n")
             entry_index += 1
