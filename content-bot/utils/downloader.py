@@ -9,6 +9,8 @@ import json
 import yt_dlp
 from pathlib import Path
 from urllib.parse import urlparse
+import socket
+import ipaddress
 import yt_dlp
 from yt_dlp.utils import download_range_func, match_filter_func
 
@@ -26,8 +28,20 @@ def _validate_youtube_url(url: str):
             raise ValueError(f"Invalid URL scheme: {parsed.scheme}")
 
         allowed_domains = ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"]
-        if parsed.netloc.lower() not in allowed_domains:
-            raise ValueError(f"Invalid domain: {parsed.netloc}")
+        hostname = parsed.hostname
+        if not hostname or hostname.lower() not in allowed_domains:
+            raise ValueError(f"Invalid domain: {hostname}")
+
+        try:
+            addr_info = socket.getaddrinfo(hostname, None)
+            for info in addr_info:
+                ip = info[4][0]
+                ip_obj = ipaddress.ip_address(ip)
+                if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local:
+                    raise ValueError(f"Domain resolves to internal IP: {ip}")
+        except socket.gaierror:
+            raise ValueError(f"Failed to resolve domain: {hostname}")
+
     except ValueError as e:
         raise ValueError(f"Security validation failed: {str(e)}")
     except Exception as e:
