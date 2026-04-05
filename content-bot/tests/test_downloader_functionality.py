@@ -35,9 +35,12 @@ class TestDownloaderFunctionality(unittest.TestCase):
             "thumbnail": "https://example.com/thumb.jpg"
         }
 
-        # We need a valid URL to pass validation, but yt-dlp won't be called for real
-        url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-        info = get_video_info(url)
+        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+            mock_getaddrinfo.return_value = [(2, 1, 6, '', ('8.8.8.8', 80))]
+
+            # We need a valid URL to pass validation, but yt-dlp won't be called for real
+            url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+            info = get_video_info(url)
 
         self.assertEqual(info["title"], "Test Video")
         self.assertEqual(info["duration"], 120)

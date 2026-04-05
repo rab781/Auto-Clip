@@ -87,18 +87,20 @@ class TestSecurityDownloader(unittest.TestCase):
             "https://m.youtube.com/watch?v=dQw4w9WgXcQ"
         ]
 
-        for url in valid_urls:
-            try:
-                # calling get_video_info triggers validation first.
-                # It might fail later with network error or yt-dlp error,
-                # but NOT Security validation failed.
-                get_video_info(url)
-            except ValueError as e:
-                if "Security validation failed" in str(e):
-                     self.fail(f"Valid URL failed validation: {url}")
-            except Exception:
-                # Ignore other errors (network, etc)
-                pass
+        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+            mock_getaddrinfo.return_value = [(2, 1, 6, '', ('8.8.8.8', 80))]
+            for url in valid_urls:
+                try:
+                    # calling get_video_info triggers validation first.
+                    # It might fail later with network error or yt-dlp error,
+                    # but NOT Security validation failed.
+                    get_video_info(url)
+                except ValueError as e:
+                    if "Security validation failed" in str(e):
+                         self.fail(f"Valid URL failed validation: {url}")
+                except Exception:
+                    # Ignore other errors (network, etc)
+                    pass
 
         # Invalid URLs
         invalid_urls = [

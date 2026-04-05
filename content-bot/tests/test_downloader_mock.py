@@ -39,7 +39,9 @@ class TestDownloaderMock(unittest.TestCase):
         url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
         output_dir = "tests/temp_mock"
 
-        result = download_audio_only(url, output_dir)
+        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+            mock_getaddrinfo.return_value = [(2, 1, 6, '', ('8.8.8.8', 80))]
+            result = download_audio_only(url, output_dir)
 
         # Verify
         self.assertEqual(result, '/tmp/output/test.mp3')
@@ -71,7 +73,9 @@ class TestDownloaderMock(unittest.TestCase):
         url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
         output_dir = "tests/temp_mock"
 
-        result = download_audio_only(url, output_dir)
+        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+            mock_getaddrinfo.return_value = [(2, 1, 6, '', ('8.8.8.8', 80))]
+            result = download_audio_only(url, output_dir)
 
         # Verify fallback logic (no longer replaces extension)
         expected = str(Path('tests/temp_mock/Test Video.webm'))
