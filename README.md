@@ -18,12 +18,12 @@ pip install -r content-bot/requirements.txt
 cp .env.example .env
 ```
 
-Set your API key in `.env`:
+You set your API key in `.env`:
 ```env
 CHUTES_API_KEY=your_real_key_here
 ```
 
-Run the bot:
+You run the bot:
 ```bash
 python content-bot/main.py https://www.youtube.com/watch?v=dQw4w9WgXcQ
 ```
@@ -54,7 +54,7 @@ cp .env.example .env
 
 ### Basic Example
 
-Process a single YouTube video. The bot downloads the audio, transcribes it, analyzes it for engaging moments, and processes those moments into vertical clips.
+You process a single YouTube video. The bot downloads the audio, transcribes it, analyzes it for engaging moments, and processes those moments into vertical clips.
 
 ```bash
 python content-bot/main.py https://youtu.be/dQw4w9WgXcQ
@@ -62,7 +62,18 @@ python content-bot/main.py https://youtu.be/dQw4w9WgXcQ
 
 ### Configuration
 
-Customize the bot's behavior by modifying `content-bot/config.py`.
+You customize the bot's behavior by modifying `content-bot/config.py`.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `output_width` | `number` | `1080` | Width of the final vertical clip. |
+| `output_height` | `number` | `1920` | Height of the final vertical clip. |
+| `min_clip_duration` | `number` | `15` | Minimum duration (seconds) for a generated clip. |
+| `max_clip_duration` | `number` | `300` | Maximum duration (seconds) for a complete narrative arc. |
+| `max_filesize` | `number` | `524288000` | Maximum video size to download (500MB). |
+| `font` | `string` | `"Segoe UI Semibold"` | Font used for the word-level captions. |
+| `style` | `string` | `"animated"` | Caption style (`animated` for ASS highlighting, `simple` for standard SRT). |
+| `highlight_color` | `string` | `"&H00FFFF"` | Color for the currently spoken word (ASS Hex format: Yellow). |
 
 See [full Configuration reference →](docs/reference-configuration.md)
 
@@ -70,7 +81,7 @@ See [full Configuration reference →](docs/reference-configuration.md)
 
 #### Dry Run Mode
 
-See what clips the AI selects without downloading and processing the video files. This is excellent for testing and tweaking the AI selection logic.
+You see what clips the AI selects without downloading and processing the video files. This is excellent for testing and tweaking the AI selection logic.
 
 ```bash
 python content-bot/main.py --url https://youtu.be/dQw4w9WgXcQ --dry-run
@@ -78,7 +89,7 @@ python content-bot/main.py --url https://youtu.be/dQw4w9WgXcQ --dry-run
 
 #### Debug Mode
 
-Show detailed stack traces for troubleshooting if you encounter an issue.
+You view detailed stack traces for troubleshooting if you encounter an issue.
 
 ```bash
 python content-bot/main.py https://youtu.be/dQw4w9WgXcQ --debug
