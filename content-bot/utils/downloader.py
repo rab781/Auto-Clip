@@ -6,10 +6,11 @@ Optimized: Download audio dulu untuk transkripsi, video segment kemudian
 import sys
 import os
 import json
+import socket
+import ipaddress
 import yt_dlp
 from pathlib import Path
 from urllib.parse import urlparse
-import yt_dlp
 from yt_dlp.utils import download_range_func, match_filter_func
 
 from config import DOWNLOAD_SETTINGS
@@ -26,8 +27,21 @@ def _validate_youtube_url(url: str):
             raise ValueError(f"Invalid URL scheme: {parsed.scheme}")
 
         allowed_domains = ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"]
-        if parsed.netloc.lower() not in allowed_domains:
-            raise ValueError(f"Invalid domain: {parsed.netloc}")
+        hostname = parsed.hostname
+        if hostname is None or hostname.lower() not in allowed_domains:
+            raise ValueError(f"Invalid domain: {hostname}")
+
+        # SSRF protection: resolve IP and ensure it's public
+        try:
+            addr_info = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+            for res in addr_info:
+                ip_str = res[4][0]
+                ip_obj = ipaddress.ip_address(ip_str)
+                if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_multicast:
+                    raise ValueError(f"Domain resolves to non-public IP: {ip_str}")
+        except socket.gaierror as e:
+            raise ValueError(f"Could not resolve domain {hostname}: {str(e)}")
+
     except ValueError as e:
         raise ValueError(f"Security validation failed: {str(e)}")
     except Exception as e:
