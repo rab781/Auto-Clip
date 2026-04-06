@@ -20,8 +20,12 @@ from utils.downloader import get_video_info
 
 class TestDownloaderFunctionality(unittest.TestCase):
 
+    @patch('utils.downloader.socket.getaddrinfo')
     @patch('utils.downloader.yt_dlp.YoutubeDL')
-    def test_get_video_info_success(self, mock_ydl_class):
+    def test_get_video_info_success(self, mock_ydl_class, mock_getaddrinfo):
+        # Mock DNS resolution to return a public IP
+        mock_getaddrinfo.return_value = [(2, 1, 6, '', ('8.8.8.8', 0))]
+
         # Setup mock for yt-dlp Python API
         mock_ydl = MagicMock()
         mock_ydl_class.return_value.__enter__.return_value = mock_ydl

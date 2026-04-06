@@ -3,6 +3,11 @@
 **Learning:** CLI tools like yt-dlp are powerful and can be used for SSRF if input is not validated.
 **Prevention:** Strictly validate input URLs to expected domains (YouTube) and schemes (http/https) before passing to yt-dlp.
 
+## 2025-05-18 - SSRF via DNS Rebinding/Domain Spoofing
+**Vulnerability:** Simple domain whitelisting (checking if URL contains 'youtube.com') is vulnerable to SSRF if the attacker controls DNS resolution or uses malicious domains that contain the string but point to internal IPs (like `127.0.0.1` or `192.168.1.x`).
+**Learning:** Checking the domain string alone is not enough to prevent SSRF because DNS can resolve legitimate-looking domains to internal IP addresses.
+**Prevention:** Validate that the resolved IP address is public (not private, loopback, link-local, or multicast) using `socket.getaddrinfo` and `ipaddress` before allowing the request to proceed.
+
 ## 2025-05-18 - Subtitle Injection via ASS Tags
 **Vulnerability:** The application constructs Advanced SubStation Alpha (.ass) subtitle files from user-controlled transcript text without sanitization. Attackers can inject ASS tags (`{`, `}`, `\`) to execute arbitrary formatting, obscuring content, or potentially exploiting vulnerabilities in media players parsing these malicious tags.
 **Learning:** Automatically generated subtitle files, particularly rich formats like .ass which support complex styling and overriding commands, are susceptible to injection attacks if the text originates from external or untrusted sources (e.g. speech-to-text outputs or LLM generation).
