@@ -19,6 +19,12 @@ sys.modules['requests'] = MagicMock()
 # Now import the module to test
 sys.path.append(str(Path(__file__).parent.parent))
 
+# Mock VIDEO_SETTINGS before importing processor
+import config
+config.VIDEO_SETTINGS = {"output_width": 1080, "output_height": 1920}
+config.AUDIO_SETTINGS = {"bgm_volume": 0.1, "original_audio_volume": 1.0}
+config.CAPTION_SETTINGS = {"font": "Arial", "font_size": 24, "outline_width": 2, "shadow_depth": 1, "margin_bottom": 50}
+
 # Import module directly to patch objects on it
 from utils import processor
 
