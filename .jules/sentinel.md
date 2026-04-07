@@ -4,9 +4,9 @@
 **Prevention:** Strictly validate input URLs to expected domains (YouTube) and schemes (http/https) before passing to yt-dlp.
 
 ## 2025-05-18 - SSRF via DNS Rebinding/Domain Spoofing
-**Vulnerability:** Simple domain whitelisting (checking if URL contains 'youtube.com') is vulnerable to SSRF if the attacker controls DNS resolution or uses malicious domains that contain the string but point to internal IPs (like `127.0.0.1` or `192.168.1.x`).
-**Learning:** Checking the domain string alone is not enough to prevent SSRF because DNS can resolve legitimate-looking domains to internal IP addresses.
-**Prevention:** Validate that the resolved IP address is public (not private, loopback, link-local, or multicast) using `socket.getaddrinfo` and `ipaddress` before allowing the request to proceed.
+**Vulnerability:** The application relied on validating the parsed URL `netloc` against a strict allow-list. This is fragile because `netloc` can include userinfo and ports (for example, `youtube.com:443` or `youtube.com@attacker.tld`), and raw comparisons can miss hostname normalization issues.
+**Learning:** Allow-list checks should be performed on the parsed and normalized `hostname`, not raw `netloc`. URL components such as credentials, ports, casing, and trailing-dot forms can make `netloc`-based validation inaccurate and unsafe.
+**Prevention:** Parse the URL, extract and normalize `hostname`, and compare that normalized hostname against the explicit allow-list of supported YouTube domains before allowing the request to proceed.
 
 ## 2025-05-18 - Subtitle Injection via ASS Tags
 **Vulnerability:** The application constructs Advanced SubStation Alpha (.ass) subtitle files from user-controlled transcript text without sanitization. Attackers can inject ASS tags (`{`, `}`, `\`) to execute arbitrary formatting, obscuring content, or potentially exploiting vulnerabilities in media players parsing these malicious tags.
