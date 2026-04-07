@@ -23,8 +23,12 @@ from utils.downloader import download_audio_only
 
 class TestDownloaderMock(unittest.TestCase):
 
+    @patch('utils.downloader.socket.getaddrinfo')
     @patch('utils.downloader.yt_dlp.YoutubeDL')
-    def test_download_audio_only_success(self, mock_ydl_class):
+    def test_download_audio_only_success(self, mock_ydl_class, mock_getaddrinfo):
+        # Mock DNS resolution to return a public IP
+        mock_getaddrinfo.return_value = [(2, 1, 6, '', ('8.8.8.8', 0))]
+
         # Setup mock
         mock_ydl = MagicMock()
         mock_ydl_class.return_value.__enter__.return_value = mock_ydl
@@ -55,8 +59,12 @@ class TestDownloaderMock(unittest.TestCase):
         # Verify extract_info called correctly
         mock_ydl.extract_info.assert_called_once_with(url, download=True)
 
+    @patch('utils.downloader.socket.getaddrinfo')
     @patch('utils.downloader.yt_dlp.YoutubeDL')
-    def test_download_audio_only_fallback(self, mock_ydl_class):
+    def test_download_audio_only_fallback(self, mock_ydl_class, mock_getaddrinfo):
+        # Mock DNS resolution to return a public IP
+        mock_getaddrinfo.return_value = [(2, 1, 6, '', ('8.8.8.8', 0))]
+
         # Setup mock for fallback case (requested_downloads missing)
         mock_ydl = MagicMock()
         mock_ydl_class.return_value.__enter__.return_value = mock_ydl

@@ -78,8 +78,12 @@ class TestSecurityDownloader(unittest.TestCase):
 
         self.assertIn("Security validation failed", str(cm.exception))
 
-    def test_url_validation(self):
+    @patch('utils.downloader.socket.getaddrinfo')
+    def test_url_validation(self, mock_getaddrinfo):
         """Test URL validation logic."""
+        # Mock DNS resolution to return a public IP
+        mock_getaddrinfo.return_value = [(2, 1, 6, '', ('8.8.8.8', 0))]
+
         # Valid URLs
         valid_urls = [
             "https://www.youtube.com/watch?v=dQw4w9WgXcQ",

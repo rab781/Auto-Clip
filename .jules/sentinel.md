@@ -3,6 +3,11 @@
 **Learning:** CLI tools like yt-dlp are powerful and can be used for SSRF if input is not validated.
 **Prevention:** Strictly validate input URLs to expected domains (YouTube) and schemes (http/https) before passing to yt-dlp.
 
+## 2025-05-18 - SSRF via DNS Rebinding/Domain Spoofing
+**Vulnerability:** The application relied on validating the parsed URL `netloc` against a strict allow-list. This is fragile because `netloc` can include userinfo and ports (for example, `youtube.com:443` or `youtube.com@attacker.tld`), and raw comparisons can miss hostname normalization issues.
+**Learning:** Allow-list checks should be performed on the parsed and normalized `hostname`, not raw `netloc`. URL components such as credentials, ports, casing, and trailing-dot forms can make `netloc`-based validation inaccurate and unsafe.
+**Prevention:** Parse the URL, extract and normalize `hostname`, and compare that normalized hostname against the explicit allow-list of supported YouTube domains before allowing the request to proceed.
+
 ## 2025-05-18 - Subtitle Injection via ASS Tags
 **Vulnerability:** The application constructs Advanced SubStation Alpha (.ass) subtitle files from user-controlled transcript text without sanitization. Attackers can inject ASS tags (`{`, `}`, `\`) to execute arbitrary formatting, obscuring content, or potentially exploiting vulnerabilities in media players parsing these malicious tags.
 **Learning:** Automatically generated subtitle files, particularly rich formats like .ass which support complex styling and overriding commands, are susceptible to injection attacks if the text originates from external or untrusted sources (e.g. speech-to-text outputs or LLM generation).
