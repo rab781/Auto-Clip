@@ -31,13 +31,15 @@ def _validate_youtube_url(url: str):
         if hostname is None or hostname.lower() not in allowed_domains:
             raise ValueError(f"Invalid domain: {hostname}")
 
-        # SSRF protection: resolve IP and ensure it's public
+        # SSRF protection: resolve IP and ensure it's globally routable
         try:
             addr_info = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
             for res in addr_info:
                 ip_str = res[4][0]
                 ip_obj = ipaddress.ip_address(ip_str)
-                if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_multicast:
+                if isinstance(ip_obj, ipaddress.IPv6Address) and ip_obj.ipv4_mapped is not None:
+                    ip_obj = ip_obj.ipv4_mapped
+                if not ip_obj.is_global:
                     raise ValueError(f"Domain resolves to non-public IP: {ip_str}")
         except socket.gaierror as e:
             raise ValueError(f"Could not resolve domain {hostname}: {str(e)}")
