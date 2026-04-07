@@ -25,14 +25,15 @@ class FaceTracker:
             min_detection_confidence=min_detection_confidence
         )
 
-    def get_average_face_position(self, video_path: str, sample_interval: int = 10) -> float:
+    def get_average_face_position(self, video_path: str, sample_interval: int = 10, max_samples: int = 20) -> float:
         """
         Scan video dan hitung rata-rata posisi X wajah (normalized 0.0 - 1.0).
         Return None jika tidak ada wajah terdeteksi.
         
         Args:
             video_path: Path to video file
-            sample_interval: Process every Nth frame (optimization)
+            sample_interval: Minimum sampling interval (base frame skip)
+            max_samples: Target maximum number of frames to analyze to bound ML inference time
             
         Returns:
             float: Average X position of face center (0.0 = left, 1.0 = right)
@@ -41,6 +42,15 @@ class FaceTracker:
         if not cap.isOpened():
             print(f"[WARN] Error opening video for face detection: {video_path}")
             return None
+
+        # ⚡ Bolt Optimization: Dynamic sampling interval to bound execution time to O(1)
+        # Impact: Distributes the max_samples evenly across the entire video. For long videos,
+        # it avoids O(N) CPU overhead by checking fewer frames while preserving the "average over time" semantics.
+        # Measurement: Timing the Smart Crop analysis phase for long clips.
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if total_frames > 0:
+            dynamic_interval = total_frames // max_samples
+            sample_interval = max(sample_interval, dynamic_interval)
 
         centers = []
         frame_count = 0

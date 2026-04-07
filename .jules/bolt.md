@@ -34,3 +34,7 @@
 ## 2025-02-18 - [Optimization] Divmod over sequential arithmetic
 **Learning:** In tight loops like calculating formatted timestamps for thousands of subtitle frames or segments, doing floating point math (`round()`), sequential floor division (`//`), and modulo operations (`%`) is computationally intensive. Replacing these with `int()` rounding and iterative built-in `divmod()` tuple unpacking speeds up calculations by roughly ~10%, adding up substantially when executed repeatedly.
 **Action:** When converting time or generating timestamps, prefer `divmod()` on integers over chaining `//` and `%` math.
+
+## 2025-02-18 - [Optimization] Dynamic Sampling for O(1) ML Inference
+**Learning:** In media processing pipelines where a static property (like average face position) is calculated by sampling the entire video, a fixed interval skip (e.g., every 10th frame) results in O(N) inference time. By dynamically adjusting the sampling interval based on the total video length (`total_frames // max_samples`), you can strictly bound the execution time to O(1) while still evenly sampling the entire duration to maintain semantic correctness.
+**Action:** When approximating calculations over large sequences (like videos), use a dynamic interval based on sequence length rather than a naive early exit to bound performance to O(1) without sacrificing correctness.
