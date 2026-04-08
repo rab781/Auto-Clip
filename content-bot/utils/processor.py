@@ -194,6 +194,13 @@ def generate_srt_from_segments(segments: list, output_path: str, words_per_line:
             time_per_group = seg_duration / len(word_groups)
         else:
             continue
+
+        # ⚡ Bolt Optimization: Pre-calculate the timestamp array to avoid 2N formatting calls
+        # Impact: Reduces `format_timestamp` calls from 2N to N+1 by reusing the end timestamp
+        timestamps = [
+            format_timestamp(min(seg_start + (k * time_per_group), seg_end), 'srt')
+            for k in range(len(word_groups) + 1)
+        ]
         
         # ⚡ Bolt Optimization: Pre-calculate timestamps to reduce format_timestamp calls from 2N to N+1
         # Impact: By reusing the end timestamp of one segment as the start of the next, it effectively halves the formatting overhead.

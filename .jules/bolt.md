@@ -34,3 +34,7 @@
 ## 2025-02-18 - [Optimization] Divmod over sequential arithmetic
 **Learning:** In tight loops like calculating formatted timestamps for thousands of subtitle frames or segments, doing floating point math (`round()`), sequential floor division (`//`), and modulo operations (`%`) is computationally intensive. Replacing these with `int()` rounding and iterative built-in `divmod()` tuple unpacking speeds up calculations by roughly ~10%, adding up substantially when executed repeatedly.
 **Action:** When converting time or generating timestamps, prefer `divmod()` on integers over chaining `//` and `%` math.
+
+## 2024-04-05 - [Optimization] Precalculate Timestamps in SRT Generation
+**Learning:** In subtitle generator loops (e.g., `generate_srt_from_segments`), calculating the start and end timestamp for each contiguous word group results in redundant `format_timestamp` calls, as the end time of one segment is the same as the start time of the next. This causes 2N timestamp formatting calls.
+**Action:** When generating contiguous SRT entries or similar sequences, precalculate a timestamp array (of size N+1) to reuse the boundary timestamps. This reduces formatting overhead and improves string construction speed inside tight loops.
