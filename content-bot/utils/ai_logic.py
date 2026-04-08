@@ -123,7 +123,7 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
     temp_dir.mkdir(mode=0o700, exist_ok=True)
     
     all_segments = []
-    full_text = ""
+    text_chunks = []
     
     # Prepare tasks
     tasks = []
@@ -190,7 +190,7 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
                 seg["end"] += start_ts
                 all_segments.append(seg)
 
-        full_text += " " + result.get("text", "")
+        text_chunks.append(result.get("text", ""))
     
     # Clean up temp directory
     try:
@@ -198,6 +198,7 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
     except:
         pass
     
+    full_text = " ".join(text_chunks)
     print(f"\n[OK] Transcription complete: {len(full_text)} characters, {len(all_segments)} segments")
     
     return {
