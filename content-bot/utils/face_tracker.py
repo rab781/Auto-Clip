@@ -42,6 +42,18 @@ class FaceTracker:
             print(f"[WARN] Error opening video for face detection: {video_path}")
             return None
 
+        # ⚡ Bolt Optimization: Dynamic sampling interval to bound inference to O(1) time complexity
+        # Impact: Prevents O(N) execution time on long videos by limiting maximum ML inference samples,
+        # while maintaining uniform distribution across the entire video.
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if total_frames > 0:
+            # Increased from 30 to 150 to ensure high temporal resolution for longer videos
+            # while still strictly bounding the maximum inference time.
+            max_samples = 150
+            dynamic_interval = max(sample_interval, total_frames // max_samples)
+        else:
+            dynamic_interval = sample_interval
+
         centers = []
         frame_count = 0
         
@@ -51,7 +63,7 @@ class FaceTracker:
                 break
             
             # Skip frames for performance without decoding
-            if frame_count % sample_interval != 0:
+            if frame_count % dynamic_interval != 0:
                 frame_count += 1
                 continue
 
