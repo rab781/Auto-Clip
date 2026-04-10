@@ -34,3 +34,7 @@
 ## 2025-02-18 - [Optimization] Divmod over sequential arithmetic
 **Learning:** In tight loops like calculating formatted timestamps for thousands of subtitle frames or segments, doing floating point math (`round()`), sequential floor division (`//`), and modulo operations (`%`) is computationally intensive. Replacing these with `int()` rounding and iterative built-in `divmod()` tuple unpacking speeds up calculations by roughly ~10%, adding up substantially when executed repeatedly.
 **Action:** When converting time or generating timestamps, prefer `divmod()` on integers over chaining `//` and `%` math.
+
+## 2025-02-18 - [Optimization] Dynamically Bounding ML Inference Sampling
+**Learning:** When sampling a video for a static property using expensive ML inference (like face tracking), using a fixed sampling interval (e.g., every 10th frame) results in O(N) execution time, which becomes a severe bottleneck on long videos. By dynamically adjusting the interval based on the total frame count (`max(sample_interval, total_frames // max_samples)`), the inference cost is strictly bounded to a maximum number of samples (O(1) complexity) while maintaining a uniform temporal distribution and preserving accuracy.
+**Action:** Always avoid fixed sampling intervals for expensive per-frame operations. Dynamically calculate the interval using `cv2.CAP_PROP_FRAME_COUNT` to bound the maximum number of frames processed to an O(1) upper limit.
