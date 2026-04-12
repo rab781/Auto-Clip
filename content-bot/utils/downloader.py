@@ -194,9 +194,11 @@ def get_video_info(url: str) -> dict:
 
 def _seconds_to_hhmmss(seconds: float) -> str:
     """Convert seconds to HH:MM:SS format"""
-    hours = int(seconds // 3600)
-    minutes = int((seconds % 3600) // 60)
-    secs = int(seconds % 60)
+    # ⚡ Bolt Optimization: Use divmod over sequential floor division/modulo arithmetic
+    # Impact: Replaces floating point arithmetic and repeated sequential operations with efficient integer `divmod` math.
+    # Measurement: Count instructions or benchmark vs original logic inside large iterative tasks.
+    mins, secs = divmod(int(seconds), 60)
+    hours, minutes = divmod(mins, 60)
     return f"{hours:02d}:{minutes:02d}:{secs:02d}"
 
 
