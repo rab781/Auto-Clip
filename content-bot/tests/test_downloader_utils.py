@@ -47,5 +47,8 @@ class TestDownloaderUtils(unittest.TestCase):
         self.assertEqual(_seconds_to_hhmmss(60.5), "00:01:00")
         self.assertEqual(_seconds_to_hhmmss(3601.9), "01:00:01")
 
+    def test_seconds_to_hhmmss_negative_float_truncation(self):
+        """Test that near-zero negative floats truncate toward zero."""
+        self.assertEqual(_seconds_to_hhmmss(-0.1), "00:00:00")
 if __name__ == '__main__':
     unittest.main()
