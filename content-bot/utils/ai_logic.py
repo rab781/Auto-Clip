@@ -267,7 +267,7 @@ def _extract_audio_chunk(audio_path: str, output_path: str, start: float, end: f
     
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     if result.returncode != 0:
-        raise Exception(f"FFmpeg error: {result.stderr[:200]}")
+        raise Exception(f"FFmpeg error: {result.stderr[-500:] if result.stderr else ''}")
 
 
 def _transcribe_chunk(audio_path: str, time_offset: float, max_retries: int = 3, chunk_label: str = "", session=None) -> dict:
@@ -574,7 +574,7 @@ HANYA OUTPUT JSON, tanpa penjelasan tambahan."""
     )
     
     if response.status_code != 200:
-        safe_err = _sanitize_error_msg(response.text)[:500]
+        safe_err = _sanitize_error_msg(response.text)[:500] if response.text else ''
         raise Exception(f"LLM API error: {safe_err}")
     
     result = response.json()
