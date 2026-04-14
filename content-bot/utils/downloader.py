@@ -9,12 +9,16 @@ import json
 import socket
 import ipaddress
 import yt_dlp
+import functools
 from pathlib import Path
 from urllib.parse import urlparse
 from yt_dlp.utils import download_range_func, match_filter_func
 
 from config import DOWNLOAD_SETTINGS
 
+# ⚡ Bolt Optimization: Cache URL validation to prevent redundant blocking DNS lookups
+# Impact: Reduces duplicate socket.getaddrinfo calls during batch processing (called in info, audio, and per-segment downloads), eliminating unnecessary 10-100ms network latency per clip.
+@functools.lru_cache(maxsize=128)
 def _validate_youtube_url(url: str):
     """
     Validate that the URL is a legitimate YouTube URL to prevent SSRF/local file access.

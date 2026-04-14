@@ -40,6 +40,7 @@ class TestProcessorOptimization(unittest.TestCase):
         mock_duration.return_value = 10.0
         mock_result = MagicMock()
         mock_result.returncode = 0
+        mock_result.stderr = ''
         mock_run.return_value = mock_result
 
         video_path = "segment.mp4"
