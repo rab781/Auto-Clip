@@ -21,6 +21,8 @@ class TestDownloaderSSRF(unittest.TestCase):
 
     @patch('utils.downloader.socket.getaddrinfo')
     def test_ssrf_private_ip(self, mock_getaddrinfo):
+        from utils.downloader import _check_domain_resolves_to_public_ip
+        _check_domain_resolves_to_public_ip.cache_clear()
         """Test that SSRF protection blocks domains resolving to private IPs."""
         # Mock DNS resolution to return a private IP
         mock_getaddrinfo.return_value = [(2, 1, 6, '', ('192.168.1.1', 0))]
@@ -35,6 +37,8 @@ class TestDownloaderSSRF(unittest.TestCase):
 
     @patch('utils.downloader.socket.getaddrinfo')
     def test_ssrf_loopback_ip(self, mock_getaddrinfo):
+        from utils.downloader import _check_domain_resolves_to_public_ip
+        _check_domain_resolves_to_public_ip.cache_clear()
         """Test that SSRF protection blocks domains resolving to loopback IPs."""
         # Mock DNS resolution to return a loopback IP
         mock_getaddrinfo.return_value = [(2, 1, 6, '', ('127.0.0.1', 0))]
