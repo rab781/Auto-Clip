@@ -31,13 +31,11 @@ from utils import processor
 class TestProcessorOptimization(unittest.TestCase):
 
     @patch('subprocess.run')
-    @patch('utils.processor._get_video_duration')
-    def test_optimized_pipeline_construction(self, mock_duration, mock_run):
+    def test_optimized_pipeline_construction(self, mock_run):
         """
         Verify that _create_final_clip_optimized constructs a single FFmpeg command
         with the correct filter chain.
         """
-        mock_duration.return_value = 10.0
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_run.return_value = mock_result
