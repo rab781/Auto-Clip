@@ -110,15 +110,18 @@ def _get_crop_filter(video_path: str) -> str:
     return f"scale=-1:{height},crop={width}:{height}:{crop_x}:0"
 
 
-def _get_audio_mix_filter(video_duration: float, bgm_volume: float = None) -> str:
+def _get_audio_mix_filter(bgm_volume: float = None) -> str:
     """Helper to construct audio mix filter string"""
     if bgm_volume is None:
         bgm_volume = AUDIO_SETTINGS["bgm_volume"]
 
     original_volume = AUDIO_SETTINGS["original_audio_volume"]
 
+    # ⚡ Bolt Optimization: Use size=0 for dynamic looping buffer
+    # Impact: Eliminates the need to compute video duration synchronously, removing a blocking
+    # FFprobe subprocess call from the hot path. The amix duration=first handles truncation naturally.
     return (
-        f"[1:a]volume={bgm_volume},aloop=loop=-1:size={int(video_duration*48000)}[bgm];"
+        f"[1:a]volume={bgm_volume},aloop=loop=-1:size=0[bgm];"
         f"[0:a]volume={original_volume}[original];"
         f"[original][bgm]amix=inputs=2:duration=first[aout]"
     )
@@ -278,8 +281,7 @@ def add_background_music(video_path: str, bgm_path: str, output_path: str,
     output_path = Path(output_path)
     output_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     
-    duration = _get_video_duration(video_path)
-    filter_complex = _get_audio_mix_filter(duration, bgm_volume)
+    filter_complex = _get_audio_mix_filter(bgm_volume)
     
     cmd = [
         "ffmpeg", "-y",
@@ -407,8 +409,7 @@ def _create_final_clip_optimized(
 
     if bgm_path:
         inputs.extend(["-i", f"file:{os.path.abspath(bgm_path)}"])
-        duration = _get_video_duration(video_segment_path)
-        audio_filter_chain = _get_audio_mix_filter(duration, None) # Use default volume
+        audio_filter_chain = _get_audio_mix_filter(None) # Use default volume
         filter_complex += f"{audio_filter_chain}"
         map_args.extend(["-map", "[aout]"])
     else:
