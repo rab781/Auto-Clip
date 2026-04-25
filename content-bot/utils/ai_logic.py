@@ -22,9 +22,10 @@ def _sanitize_error_msg(msg: str) -> str:
     """
     Sanitize error messages to prevent leaking the configured API key.
     """
-    if CHUTES_API_KEY and CHUTES_API_KEY in msg:
-        return msg.replace(CHUTES_API_KEY, "[REDACTED]")
-    return msg
+    msg_str = str(msg)
+    if CHUTES_API_KEY and CHUTES_API_KEY in msg_str:
+        return msg_str.replace(CHUTES_API_KEY, "[REDACTED]")
+    return msg_str
 
 
 def validate_dependencies():
@@ -405,7 +406,9 @@ PENTING:
 - Jika sudah dalam Bahasa Indonesia, biarkan apa adanya
 - JANGAN tambahkan penjelasan apapun
 
-{batch_text}"""
+```
+{batch_text}
+```"""
             
             data = {
                 "model": LLM_MODEL,
@@ -501,7 +504,9 @@ Kamu memahami NARRATIVE ARC (struktur cerita) dan tahu cara membuat penonton KET
 Durasi total video: {video_info.get('duration', 'unknown')} detik
 
 Berikut adalah transkrip video dengan timestamp:
+```
 {segments_text}
+```
 
 === TUGAS UTAMA ===
 Analisis transkrip ini secara SEMANTIK dan identifikasi 2-5 CHAPTER/SEGMENT yang memiliki cerita lengkap.
@@ -635,7 +640,10 @@ Judul: {clip_info.get('caption_title', '')}
 Hook video: {hook_text}
 Tipe konten: {narrative_type}
 Alasan menarik: {clip_info.get('reason', '')}
-Isi transkrip: {transcript_segment[:500]}
+Isi transkrip:
+```
+{transcript_segment[:500]}
+```
 
 FORMAT CAPTION:
 1. Baris pertama: HOOK kalimat yang bikin stop scrolling (boleh pakai hook video di atas sebagai inspirasi)
