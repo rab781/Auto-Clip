@@ -551,7 +551,9 @@ def create_final_clip(
     
     # Step 5: Generate thumbnail
     thumbnail_path = output_dir / f"{base_name}_thumbnail.jpg"
-    thumbnail = generate_thumbnail(str(final_video_path), str(thumbnail_path))
+    # ⚡ Bolt Optimization: Use clip_info to pass timestamp, avoiding slow synchronous ffprobe call
+    duration = clip_info.get("end", 30.0) - clip_info.get("start", 0.0)
+    thumbnail = generate_thumbnail(str(final_video_path), str(thumbnail_path), timestamp=duration / 3)
     
     # Step 6: Save caption to text file
     caption_path = output_dir / f"{base_name}_caption.txt"
