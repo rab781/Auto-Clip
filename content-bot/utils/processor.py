@@ -551,7 +551,26 @@ def create_final_clip(
     
     # Step 5: Generate thumbnail
     thumbnail_path = output_dir / f"{base_name}_thumbnail.jpg"
-    thumbnail = generate_thumbnail(str(final_video_path), str(thumbnail_path))
+
+    # ⚡ Bolt Optimization: Use in-memory clip_info duration only when it is valid.
+    # If start/end are missing or invalid, fall back to generate_thumbnail's default behavior
+    # instead of passing a potentially out-of-range timestamp to FFmpeg.
+    thumb_timestamp = None
+    if hasattr(clip_info, "get"):
+        clip_start = clip_info.get("start")
+        clip_end = clip_info.get("end")
+        if (
+            isinstance(clip_start, (int, float))
+            and isinstance(clip_end, (int, float))
+            and clip_end > clip_start
+        ):
+            clip_duration = clip_end - clip_start
+            thumb_timestamp = clip_duration / 3
+
+    if thumb_timestamp is not None:
+        thumbnail = generate_thumbnail(str(final_video_path), str(thumbnail_path), timestamp=thumb_timestamp)
+    else:
+        thumbnail = generate_thumbnail(str(final_video_path), str(thumbnail_path))
     
     # Step 6: Save caption to text file
     caption_path = output_dir / f"{base_name}_caption.txt"
