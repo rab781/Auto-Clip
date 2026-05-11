@@ -46,3 +46,7 @@
 ## 2025-02-18 - [Optimization] Avoid Synchronous FFprobe Subprocess Calls
 **Learning:** When constructing FFmpeg filter graphs, avoiding unnecessary synchronous subprocess calls (like `ffprobe` for video duration) improves performance and eliminates blocking execution. Features like `amix=duration=first` combined with `aloop=loop=-1:size=0` natively handle truncation and dynamic buffering, eliminating the need to pre-calculate and provide explicit sizes.
 **Action:** Remove synchronous metadata extraction before video rendering when native FFmpeg features can handle buffering dynamically, to prevent pipeline blocking and save IO latency.
+
+## 2025-02-18 - [Optimization] Avoid Synchronous FFprobe Subprocess Calls for Thumbnails
+**Learning:** When generating thumbnails for video clips, invoking `ffprobe` synchronously to determine the clip's duration introduces a blocking subprocess call that halts the pipeline and adds overhead for every clip processed. Since the clip's start and end times are already calculated and available in memory (e.g., in a `clip_info` dictionary), the duration can be derived instantly (`clip_info['end'] - clip_info['start']`), completely bypassing the need for an external I/O bound metadata check.
+**Action:** Always prefer calculating metadata from in-memory context over spawning synchronous subprocesses like `ffprobe`, especially when processing multiple items in a batch where the overhead compounds.
