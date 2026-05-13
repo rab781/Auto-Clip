@@ -229,7 +229,11 @@ def process_video(url: str, dry_run: bool = False) -> list:
     
     # Step 3: Transcribe audio
     progress.set_description("[AI] Transcribing audio")
-    transcription = transcribe_audio(audio_path)
+    video_duration = video_info.get("duration")
+    if isinstance(video_duration, (int, float)) and video_duration > 0:
+        transcription = transcribe_audio(audio_path, duration=video_duration)
+    else:
+        transcription = transcribe_audio(audio_path)
     seg_count = len(transcription.get("segments", []))
     text_len = len(transcription.get("text", ""))
     print(f"\n   [TEXT] Transcribed: {seg_count} segments, {text_len} chars")

@@ -82,7 +82,7 @@ def api_retry(max_retries: int = 3, base_delay: int = 5):
     return decorator
 
 
-def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int = 300) -> dict:
+def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int = 300, duration: float = None) -> dict:
     """
     Transcribe audio menggunakan Chutes Whisper API dengan audio splitting
     untuk menghindari 504 timeout pada file besar.
@@ -91,6 +91,7 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
         audio_path: Path ke file audio
         max_retries: Jumlah maksimal retry per chunk
         chunk_duration: Durasi per chunk dalam detik (default: 300 = 5 menit)
+        duration: Durasi audio dalam detik (optional, avoid ffprobe overhead if known)
         
     Returns:
         Dictionary dengan transcript dan segments (timestamps)
@@ -105,8 +106,25 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
     print(f"[AI] Transcribing audio: {audio_path}")
     print(f"   File size: {file_size_mb:.1f} MB")
     
-    # Get audio duration using ffprobe
-    duration = _get_audio_duration(audio_path)
+    # Get audio duration using ffprobe if missing or invalid
+    probed_duration = False
+    if duration is not None:
+        try:
+            duration = float(duration)
+        except (TypeError, ValueError):
+            duration = None
+    
+    if (
+        duration is None
+        or duration <= 0
+        or duration != duration
+        or duration in (float("inf"), float("-inf"))
+    ):
+        duration = float(_get_audio_duration(audio_path))
+        probed_duration = True
+    
+    if probed_duration:
+        print("   Duration input tidak valid/unknown, menggunakan ffprobe")
     print(f"   Duration: {duration:.0f}s ({duration/60:.1f} menit)")
     
     # Determine if we need to split
