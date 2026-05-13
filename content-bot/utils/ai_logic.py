@@ -106,9 +106,25 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
     print(f"[AI] Transcribing audio: {audio_path}")
     print(f"   File size: {file_size_mb:.1f} MB")
     
-    # Get audio duration using ffprobe only if not provided
-    if duration is None:
-        duration = _get_audio_duration(audio_path)
+    # Get audio duration using ffprobe if missing or invalid
+    probed_duration = False
+    if duration is not None:
+        try:
+            duration = float(duration)
+        except (TypeError, ValueError):
+            duration = None
+    
+    if (
+        duration is None
+        or duration <= 0
+        or duration != duration
+        or duration in (float("inf"), float("-inf"))
+    ):
+        duration = float(_get_audio_duration(audio_path))
+        probed_duration = True
+    
+    if probed_duration:
+        print("   Duration input tidak valid/unknown, menggunakan ffprobe")
     print(f"   Duration: {duration:.0f}s ({duration/60:.1f} menit)")
     
     # Determine if we need to split
