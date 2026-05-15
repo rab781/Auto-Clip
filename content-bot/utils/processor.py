@@ -14,6 +14,7 @@ import shutil
 from pathlib import Path
 import sys
 import functools
+import threading
 sys.path.append(str(__file__).rsplit('\\', 2)[0])
 
 from config import (
@@ -26,6 +27,9 @@ from utils.time_utils import format_timestamp
 # Shared x264 preset for all FFmpeg encodes in this module.
 # Adjust this value (e.g., "veryfast", "slow") to tune performance/quality in one place.
 X264_PRESET = "fast"
+
+# Thread-local storage for ML models to avoid redundant initialization
+_thread_local = threading.local()
 
 # Try to import FaceTracker for smart crop
 try:
@@ -95,9 +99,17 @@ def _get_crop_filter(video_path: str) -> str:
     if FACE_TRACKER_AVAILABLE:
         print(f"[INFO] Analyzing video for Smart Crop: {Path(video_path).name}")
         try:
-            tracker = FaceTracker()
+            # ⚡ Bolt Optimization: Use thread-local storage to cache FaceTracker instances
+            # Impact: Prevents redundant, extremely expensive ML model initializations per segment
+            # while maintaining thread safety in ThreadPoolExecutor environments.
+            # Measurement: Compare end-to-end processing time for a multi-clip video before and after caching.
+            if not hasattr(_thread_local, "tracker"):
+                _thread_local.tracker = FaceTracker()
+            tracker = _thread_local.tracker
+
             avg_x = tracker.get_average_face_position(str(video_path))
-            tracker.close()
+            # Note: Deliberately skipping tracker.close() here so the instance remains
+            # cached and alive for subsequent clips processed by this thread.
             
             if avg_x is not None:
                 print(f"   [FACE] Face detected at X={avg_x:.2f}. Applying Smart Crop.")
