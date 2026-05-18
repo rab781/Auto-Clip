@@ -29,7 +29,7 @@ X264_PRESET = "fast"
 
 # Try to import FaceTracker for smart crop
 try:
-    from utils.face_tracker import FaceTracker
+    from utils.face_tracker import FaceTracker, get_cached_tracker
     FACE_TRACKER_AVAILABLE = True
 except ImportError:
     print("! FaceTracker modules (MediaPipe/OpenCV) not found. Using Center Crop.")
@@ -95,9 +95,8 @@ def _get_crop_filter(video_path: str) -> str:
     if FACE_TRACKER_AVAILABLE:
         print(f"[INFO] Analyzing video for Smart Crop: {Path(video_path).name}")
         try:
-            tracker = FaceTracker()
+            tracker = get_cached_tracker()
             avg_x = tracker.get_average_face_position(str(video_path))
-            tracker.close()
             
             if avg_x is not None:
                 print(f"   [FACE] Face detected at X={avg_x:.2f}. Applying Smart Crop.")
