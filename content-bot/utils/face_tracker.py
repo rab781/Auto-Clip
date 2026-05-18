@@ -8,6 +8,7 @@ import mediapipe as mp
 import numpy as np
 from pathlib import Path
 import sys
+import threading
 
 # Suppress MediaPipe logging
 import os
@@ -102,18 +103,27 @@ class FaceTracker:
     def close(self):
         self.face_detection.close()
 
+_thread_local = threading.local()
+
+def get_cached_tracker() -> FaceTracker:
+    """
+    Returns a thread-local cached instance of FaceTracker to avoid heavy model initialization overhead
+    during concurrent processing.
+    """
+    if not hasattr(_thread_local, 'tracker'):
+        _thread_local.tracker = FaceTracker()
+    return _thread_local.tracker
+
 def smart_crop_options(input_path: str) -> dict:
     """
     Analisis video dan return parameter crop untuk FFmpeg.
     """
-    tracker = FaceTracker()
+    tracker = get_cached_tracker()
     try:
         avg_x = tracker.get_average_face_position(input_path)
     except Exception as e:
         print(f"[WARN] Face detection failed: {e}")
         avg_x = None
-    finally:
-        tracker.close()
         
     if avg_x is None:
         print("   [FACE] No face detected, using center crop.")
