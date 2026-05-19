@@ -4,6 +4,7 @@ Modul untuk mendeteksi wajah dalam video dan menentukan posisi crop optimal.
 Menggunakan MediaPipe Face Detection.
 """
 import cv2
+import threading
 import mediapipe as mp
 import numpy as np
 from pathlib import Path
@@ -13,6 +14,8 @@ import sys
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+_local = threading.local()
+
 class FaceTracker:
     def __init__(self, model_selection=1, min_detection_confidence=0.5):
         """
@@ -20,10 +23,16 @@ class FaceTracker:
         model_selection: 0 for close range (2m), 1 for far range (5m)
         """
         self.mp_face_detection = mp.solutions.face_detection
-        self.face_detection = self.mp_face_detection.FaceDetection(
-            model_selection=model_selection,
-            min_detection_confidence=min_detection_confidence
-        )
+
+        # ⚡ Bolt Optimization: Cache ML model instance using threading.local()
+        # Impact: Avoids heavy CPU overhead of initializing a new MediaPipe FaceDetection model
+        # for every clip processed in parallel, while maintaining thread safety.
+        if not hasattr(_local, "face_detection"):
+            _local.face_detection = self.mp_face_detection.FaceDetection(
+                model_selection=model_selection,
+                min_detection_confidence=min_detection_confidence
+            )
+        self.face_detection = _local.face_detection
 
     def get_average_face_position(self, video_path: str, sample_interval: int = 10) -> float:
         """
@@ -100,7 +109,9 @@ class FaceTracker:
         return max(0.0, min(1.0, avg_x))
 
     def close(self):
-        self.face_detection.close()
+        # ⚡ Bolt Optimization: Preserve cached model instance
+        # Do not close the model so it can be reused by future tasks in the same thread.
+        pass
 
 def smart_crop_options(input_path: str) -> dict:
     """
