@@ -14,6 +14,7 @@ import shutil
 from pathlib import Path
 import sys
 import functools
+import threading
 sys.path.append(str(__file__).rsplit('\\', 2)[0])
 
 from config import (
@@ -34,6 +35,14 @@ try:
 except ImportError:
     print("! FaceTracker modules (MediaPipe/OpenCV) not found. Using Center Crop.")
     FACE_TRACKER_AVAILABLE = False
+
+_thread_local = threading.local()
+
+def _get_face_tracker():
+    """Helper to maintain a thread-local instance of FaceTracker."""
+    if not hasattr(_thread_local, 'tracker'):
+        _thread_local.tracker = FaceTracker()
+    return _thread_local.tracker
 
 
 def _get_subtitle_filter(srt_path: str) -> str:
@@ -95,9 +104,9 @@ def _get_crop_filter(video_path: str) -> str:
     if FACE_TRACKER_AVAILABLE:
         print(f"[INFO] Analyzing video for Smart Crop: {Path(video_path).name}")
         try:
-            tracker = FaceTracker()
+            tracker = _get_face_tracker()
             avg_x = tracker.get_average_face_position(str(video_path))
-            tracker.close()
+            # ⚡ Bolt Optimization: Do not close the tracker to keep the model cached in thread-local storage
             
             if avg_x is not None:
                 print(f"   [FACE] Face detected at X={avg_x:.2f}. Applying Smart Crop.")
