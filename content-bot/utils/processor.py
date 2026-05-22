@@ -14,6 +14,7 @@ import shutil
 from pathlib import Path
 import sys
 import functools
+import threading
 sys.path.append(str(__file__).rsplit('\\', 2)[0])
 
 from config import (
@@ -27,10 +28,21 @@ from utils.time_utils import format_timestamp
 # Adjust this value (e.g., "veryfast", "slow") to tune performance/quality in one place.
 X264_PRESET = "fast"
 
+
 # Try to import FaceTracker for smart crop
 try:
     from utils.face_tracker import FaceTracker
     FACE_TRACKER_AVAILABLE = True
+    _thread_local = threading.local()
+
+    def _get_face_tracker():
+        # ⚡ Bolt Optimization: Cache heavy ML model instance per thread
+        # Impact: Prevents loading the MediaPipe Face Detection model repeatedly for every clip,
+        # dramatically reducing CPU overhead and memory allocation during parallel processing.
+        # Measurement: Measure the difference in total execution time when processing multiple clips in parallel.
+        if not hasattr(_thread_local, 'tracker'):
+            _thread_local.tracker = FaceTracker()
+        return _thread_local.tracker
 except ImportError:
     print("! FaceTracker modules (MediaPipe/OpenCV) not found. Using Center Crop.")
     FACE_TRACKER_AVAILABLE = False
@@ -95,9 +107,9 @@ def _get_crop_filter(video_path: str) -> str:
     if FACE_TRACKER_AVAILABLE:
         print(f"[INFO] Analyzing video for Smart Crop: {Path(video_path).name}")
         try:
-            tracker = FaceTracker()
+            tracker = _get_face_tracker()
             avg_x = tracker.get_average_face_position(str(video_path))
-            tracker.close()
+            # ⚡ Bolt Optimization: Removed tracker.close() to preserve cached thread-local model instance
             
             if avg_x is not None:
                 print(f"   [FACE] Face detected at X={avg_x:.2f}. Applying Smart Crop.")
