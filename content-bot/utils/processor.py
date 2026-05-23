@@ -97,7 +97,6 @@ def _get_crop_filter(video_path: str) -> str:
         try:
             tracker = FaceTracker()
             avg_x = tracker.get_average_face_position(str(video_path))
-            tracker.close()
             
             if avg_x is not None:
                 print(f"   [FACE] Face detected at X={avg_x:.2f}. Applying Smart Crop.")
