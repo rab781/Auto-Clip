@@ -18,12 +18,19 @@ sys.path.append(str(__file__).rsplit('\\', 2)[0])
 from config import CHUTES_API_KEY, CHUTES_BASE_URL, WHISPER_MODEL, LLM_MODEL, VIDEO_SETTINGS
 
 
+import urllib.parse
+
 def _sanitize_error_msg(msg: str) -> str:
     """
     Sanitize error messages to prevent leaking the configured API key.
     """
-    if CHUTES_API_KEY and CHUTES_API_KEY in msg:
-        return msg.replace(CHUTES_API_KEY, "[REDACTED]")
+    msg = str(msg)
+    if CHUTES_API_KEY:
+        if CHUTES_API_KEY in msg:
+            msg = msg.replace(CHUTES_API_KEY, "[REDACTED]")
+        url_encoded_key = urllib.parse.quote(CHUTES_API_KEY, safe='')
+        if url_encoded_key in msg:
+            msg = msg.replace(url_encoded_key, "[REDACTED]")
     return msg
 
 
