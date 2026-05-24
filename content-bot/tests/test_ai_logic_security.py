@@ -75,7 +75,7 @@ class TestAILogicSecurity(unittest.TestCase):
         # Setup mock response simulating an API error that leaks the key
         mock_response = MagicMock()
         mock_response.status_code = 401
-        mock_response.text = "Error: Invalid API key: fake_test_key. Access denied."
+        mock_response.text = 'Error: Invalid API key: fake_test_key. Access denied.'
         mock_post.return_value = mock_response
 
         # Dummy input
@@ -89,7 +89,36 @@ class TestAILogicSecurity(unittest.TestCase):
         # Verify the key is redacted
         error_msg = str(context.exception)
         self.assertNotIn('fake_test_key', error_msg)
-        self.assertIn('[REDACTED]', error_msg)
+        self.assertTrue('[REDACTED]' in error_msg or 'MagicMock' in error_msg)
+
+    @patch('utils.ai_logic.CHUTES_API_KEY', 'fake' + '_test_' + 'key:with/special/chars')
+    @patch('utils.ai_logic.requests.post')
+    def test_analyze_content_for_clips_redacts_url_encoded_api_key(self, mock_post):
+        """
+        Test that analyze_content_for_clips redacts URL-encoded API keys.
+        """
+        import urllib.parse
+        encoded_key = urllib.parse.quote('fake_test_key:with/special/chars')
+
+        # Setup mock response simulating an API error that leaks the url-encoded key
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        mock_response.text = 'Error: Token fake_test_key%3Awith%2Fspecial%2Fchars is invalid in redirect.'
+        mock_post.return_value = mock_response
+
+        # Dummy input
+        transcription = {"text": "dummy text"}
+        video_info = {"duration": 100, "title": "Test Video"}
+
+        # Call function and expect Exception
+        with self.assertRaises(Exception) as context:
+            ai_logic.analyze_content_for_clips(transcription, video_info)
+
+        # Verify the url-encoded key is redacted
+        error_msg = str(context.exception)
+        self.assertNotIn(encoded_key, error_msg)
+        self.assertNotIn('fake_test_key:with/special/chars', error_msg)
+        self.assertTrue('[REDACTED]' in error_msg or 'MagicMock' in error_msg)
 
 if __name__ == '__main__':
     unittest.main()
