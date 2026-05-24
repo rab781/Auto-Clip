@@ -8,10 +8,13 @@ import mediapipe as mp
 import numpy as np
 from pathlib import Path
 import sys
+import threading
 
 # Suppress MediaPipe logging
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+_thread_local = threading.local()
 
 class FaceTracker:
     def __init__(self, model_selection=1, min_detection_confidence=0.5):
@@ -20,10 +23,21 @@ class FaceTracker:
         model_selection: 0 for close range (2m), 1 for far range (5m)
         """
         self.mp_face_detection = mp.solutions.face_detection
-        self.face_detection = self.mp_face_detection.FaceDetection(
-            model_selection=model_selection,
-            min_detection_confidence=min_detection_confidence
-        )
+
+        # ⚡ Bolt Optimization: Thread-local model caching
+        # Impact: Prevents severe CPU overhead from repeatedly initializing the heavy MediaPipe model
+        # inside ThreadPoolExecutors. Reuse the instance per thread based on configuration parameters.
+        if not hasattr(_thread_local, "models"):
+            _thread_local.models = {}
+
+        model_key = (model_selection, min_detection_confidence)
+        if model_key not in _thread_local.models:
+            _thread_local.models[model_key] = self.mp_face_detection.FaceDetection(
+                model_selection=model_selection,
+                min_detection_confidence=min_detection_confidence
+            )
+
+        self.face_detection = _thread_local.models[model_key]
 
     def get_average_face_position(self, video_path: str, sample_interval: int = 10) -> float:
         """
@@ -99,9 +113,6 @@ class FaceTracker:
         # Clamp between 0 and 1
         return max(0.0, min(1.0, avg_x))
 
-    def close(self):
-        self.face_detection.close()
-
 def smart_crop_options(input_path: str) -> dict:
     """
     Analisis video dan return parameter crop untuk FFmpeg.
@@ -112,8 +123,6 @@ def smart_crop_options(input_path: str) -> dict:
     except Exception as e:
         print(f"[WARN] Face detection failed: {e}")
         avg_x = None
-    finally:
-        tracker.close()
         
     if avg_x is None:
         print("   [FACE] No face detected, using center crop.")
