@@ -20,6 +20,11 @@ from config import CHUTES_API_KEY, CHUTES_BASE_URL, WHISPER_MODEL, LLM_MODEL, VI
 
 import urllib.parse
 
+# ⚡ Bolt Optimization: Use a global Session for LLM API connection pooling
+# Impact: Reuses the underlying TCP connection/TLS session across multiple LLM requests,
+# eliminating handshake overhead and significantly speeding up repetitive API calls during clip generation.
+_api_session = requests.Session()
+
 def _sanitize_error_msg(msg: str) -> str:
     """
     Sanitize error messages to prevent leaking the configured API key.
@@ -591,7 +596,7 @@ HANYA OUTPUT JSON, tanpa penjelasan tambahan."""
     }
     
     print("[AI] Analyzing content for viral clips...")
-    response = requests.post(
+    response = _api_session.post(
         f"{CHUTES_BASE_URL}/chat/completions",
         headers=headers,
         json=data,
@@ -679,7 +684,7 @@ OUTPUT langsung caption-nya saja, tanpa label atau penjelasan."""
         "max_tokens": 150,
     }
     
-    response = requests.post(
+    response = _api_session.post(
         f"{CHUTES_BASE_URL}/chat/completions",
         headers=headers,
         json=data,
