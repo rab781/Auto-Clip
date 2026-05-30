@@ -1,3 +1,7 @@
+
+import sys
+from unittest.mock import MagicMock
+sys.modules['pytest'] = MagicMock()
 import sys
 from unittest.mock import MagicMock
 
