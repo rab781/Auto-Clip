@@ -20,6 +20,8 @@ from config import CHUTES_API_KEY, CHUTES_BASE_URL, WHISPER_MODEL, LLM_MODEL, VI
 
 import urllib.parse
 
+_api_session = requests.Session()
+
 def _sanitize_error_msg(msg: str) -> str:
     """
     Sanitize error messages to prevent leaking the configured API key.
@@ -319,7 +321,7 @@ def _transcribe_chunk(audio_path: str, time_offset: float, max_retries: int = 3,
     timeout = max(180, int(file_size_mb * 30) + 60)
     
     prefix = f"      [{chunk_label}]" if chunk_label else "      "
-    requester = session if session else requests
+    requester = session if session else _api_session
 
     for attempt in range(max_retries):
         try:
@@ -591,7 +593,7 @@ HANYA OUTPUT JSON, tanpa penjelasan tambahan."""
     }
     
     print("[AI] Analyzing content for viral clips...")
-    response = requests.post(
+    response = _api_session.post(
         f"{CHUTES_BASE_URL}/chat/completions",
         headers=headers,
         json=data,
@@ -679,7 +681,7 @@ OUTPUT langsung caption-nya saja, tanpa label atau penjelasan."""
         "max_tokens": 150,
     }
     
-    response = requests.post(
+    response = _api_session.post(
         f"{CHUTES_BASE_URL}/chat/completions",
         headers=headers,
         json=data,
