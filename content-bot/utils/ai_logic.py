@@ -17,6 +17,9 @@ sys.path.append(str(__file__).rsplit('\\', 2)[0])
 
 from config import CHUTES_API_KEY, CHUTES_BASE_URL, WHISPER_MODEL, LLM_MODEL, VIDEO_SETTINGS
 
+# Global session for connection pooling to improve performance across batch/concurrent API calls
+_api_session = requests.Session()
+
 
 import urllib.parse
 
@@ -591,7 +594,7 @@ HANYA OUTPUT JSON, tanpa penjelasan tambahan."""
     }
     
     print("[AI] Analyzing content for viral clips...")
-    response = requests.post(
+    response = _api_session.post(
         f"{CHUTES_BASE_URL}/chat/completions",
         headers=headers,
         json=data,
@@ -679,7 +682,7 @@ OUTPUT langsung caption-nya saja, tanpa label atau penjelasan."""
         "max_tokens": 150,
     }
     
-    response = requests.post(
+    response = _api_session.post(
         f"{CHUTES_BASE_URL}/chat/completions",
         headers=headers,
         json=data,
