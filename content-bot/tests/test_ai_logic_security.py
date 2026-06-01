@@ -16,10 +16,10 @@ from utils import ai_logic
 
 class TestAILogicSecurity(unittest.TestCase):
 
-    @patch('utils.ai_logic.requests.post')
+    @patch('utils.ai_logic._api_session.post')
     def test_analyze_content_for_clips_timeout(self, mock_post):
         """
-        Test that analyze_content_for_clips calls requests.post with a timeout.
+        Test that analyze_content_for_clips calls _api_session.post with a timeout.
         """
         # Setup mock response
         mock_response = MagicMock()
@@ -41,10 +41,10 @@ class TestAILogicSecurity(unittest.TestCase):
         self.assertIn('timeout', kwargs, "requests.post should be called with a timeout")
         self.assertGreater(kwargs['timeout'], 0, "Timeout should be positive")
 
-    @patch('utils.ai_logic.requests.post')
+    @patch('utils.ai_logic._api_session.post')
     def test_generate_clip_caption_timeout(self, mock_post):
         """
-        Test that generate_clip_caption calls requests.post with a timeout.
+        Test that generate_clip_caption calls _api_session.post with a timeout.
         """
         # Setup mock response
         mock_response = MagicMock()
@@ -67,7 +67,7 @@ class TestAILogicSecurity(unittest.TestCase):
         self.assertGreater(kwargs['timeout'], 0, "Timeout should be positive")
 
     @patch('utils.ai_logic.CHUTES_API_KEY', 'fake' + '_test_' + 'key')
-    @patch('utils.ai_logic.requests.post')
+    @patch('utils.ai_logic._api_session.post')
     def test_analyze_content_for_clips_redacts_api_key(self, mock_post):
         """
         Test that analyze_content_for_clips redacts the API key from error messages.
@@ -92,7 +92,7 @@ class TestAILogicSecurity(unittest.TestCase):
         self.assertTrue('[REDACTED]' in error_msg or 'MagicMock' in error_msg)
 
     @patch('utils.ai_logic.CHUTES_API_KEY', 'fake' + '_test_' + 'key:with/special/chars')
-    @patch('utils.ai_logic.requests.post')
+    @patch('utils.ai_logic._api_session.post')
     def test_analyze_content_for_clips_redacts_url_encoded_api_key(self, mock_post):
         """
         Test that analyze_content_for_clips redacts URL-encoded API keys.
