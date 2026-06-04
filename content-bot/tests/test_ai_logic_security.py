@@ -9,7 +9,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 # Import module under test
 sys.modules['yt_dlp'] = MagicMock()
 sys.modules['yt_dlp.utils'] = MagicMock()
-sys.modules['requests'] = MagicMock()
+# sys.modules['requests'] = MagicMock()
 sys.modules['dotenv'] = MagicMock()
 
 from utils import ai_logic
@@ -122,3 +122,45 @@ class TestAILogicSecurity(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+    @patch('utils.ai_logic.CHUTES_API_KEY', 'fake_test_key')
+    @patch('utils.ai_logic.requests.post')
+    def test_analyze_content_for_clips_redacts_base64_encoded_api_key(self, mock_post):
+        import base64
+        encoded_key = base64.b64encode('fake_test_key'.encode()).decode('utf-8')
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        mock_response.text = f'Error: Token {encoded_key} is invalid in redirect.'
+        mock_post.return_value = mock_response
+
+        transcription = {"text": "dummy text"}
+        video_info = {"duration": 100, "title": "Test Video"}
+
+        with self.assertRaises(Exception) as context:
+            ai_logic.analyze_content_for_clips(transcription, video_info)
+
+        error_msg = str(context.exception)
+        self.assertNotIn(encoded_key, error_msg)
+        self.assertNotIn('fake_test_key', error_msg)
+        self.assertTrue('[REDACTED]' in error_msg or 'MagicMock' in error_msg)
+
+    @patch('utils.ai_logic.CHUTES_API_KEY', 'fake_test_key')
+    @patch('utils.ai_logic.requests.post')
+    def test_analyze_content_for_clips_redacts_base64_encoded_api_key(self, mock_post):
+        import base64
+        encoded_key = base64.b64encode('fake_test_key'.encode()).decode('utf-8')
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        mock_response.text = f'Error: Token {encoded_key} is invalid in redirect.'
+        mock_post.return_value = mock_response
+
+        transcription = {"text": "dummy text"}
+        video_info = {"duration": 100, "title": "Test Video"}
+
+        with self.assertRaises(Exception) as context:
+            ai_logic.analyze_content_for_clips(transcription, video_info)
+
+        error_msg = str(context.exception)
+        self.assertNotIn(encoded_key, error_msg)
+        self.assertNotIn('fake_test_key', error_msg)
+        self.assertTrue('[REDACTED]' in error_msg or 'MagicMock' in error_msg)
