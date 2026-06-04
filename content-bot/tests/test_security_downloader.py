@@ -27,7 +27,7 @@ class TestSecurityDownloader(unittest.TestCase):
         This confirms the presence and effectiveness of the '--' delimiter.
         """
         # Mock validation to allow anything
-        mock_validate.return_value = True
+        mock_validate.return_value = None
 
         # Payload that would be interpreted as a flag if injection exists
         payload = "--version"
