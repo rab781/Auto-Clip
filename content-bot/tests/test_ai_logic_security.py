@@ -120,5 +120,34 @@ class TestAILogicSecurity(unittest.TestCase):
         self.assertNotIn('fake_test_key:with/special/chars', error_msg)
         self.assertTrue('[REDACTED]' in error_msg or 'MagicMock' in error_msg)
 
+    @patch('utils.ai_logic.CHUTES_API_KEY', 'fake_base64_test_key_123')
+    @patch('utils.ai_logic.requests.post')
+    def test_analyze_content_for_clips_redacts_base64_encoded_api_key(self, mock_post):
+        """
+        Test that analyze_content_for_clips redacts base64-encoded API keys.
+        """
+        import base64
+        encoded_key = base64.b64encode('fake_base64_test_key_123'.encode('utf-8')).decode('utf-8')
+
+        # Setup mock response simulating an API error that leaks the base64-encoded key
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        mock_response.text = f'Error: Token {encoded_key} is invalid in auth header.'
+        mock_post.return_value = mock_response
+
+        # Dummy input
+        transcription = {"text": "dummy text"}
+        video_info = {"duration": 100, "title": "Test Video"}
+
+        # Call function and expect Exception
+        with self.assertRaises(Exception) as context:
+            ai_logic.analyze_content_for_clips(transcription, video_info)
+
+        # Verify the base64-encoded key is redacted
+        error_msg = str(context.exception)
+        self.assertNotIn(encoded_key, error_msg)
+        self.assertNotIn('fake_base64_test_key_123', error_msg)
+        self.assertTrue('[REDACTED]' in error_msg or 'MagicMock' in error_msg)
+
 if __name__ == '__main__':
     unittest.main()
