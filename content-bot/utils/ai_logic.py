@@ -19,6 +19,7 @@ from config import CHUTES_API_KEY, CHUTES_BASE_URL, WHISPER_MODEL, LLM_MODEL, VI
 
 
 import urllib.parse
+import base64
 
 def _sanitize_error_msg(msg: str) -> str:
     """
@@ -31,6 +32,9 @@ def _sanitize_error_msg(msg: str) -> str:
         url_encoded_key = urllib.parse.quote(CHUTES_API_KEY, safe='')
         if url_encoded_key in msg:
             msg = msg.replace(url_encoded_key, "[REDACTED]")
+        base64_encoded_key = base64.b64encode(CHUTES_API_KEY.encode('utf-8')).decode('utf-8')
+        if base64_encoded_key in msg:
+            msg = msg.replace(base64_encoded_key, "[REDACTED]")
     return msg
 
 
