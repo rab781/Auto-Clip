@@ -53,3 +53,7 @@
 ## 2025-02-18 - [Optimization] Cache Heavy ML Models in Thread Pool Environments
 **Learning:** When initializing heavy, non-thread-safe ML models (like MediaPipe Face Detection) inside a parallel execution context (e.g., `ThreadPoolExecutor`), creating a new model instance for every task causes severe CPU overhead and memory thrashing. However, storing a single global instance leads to thread safety issues.
 **Action:** Use `threading.local()` to cache and reuse model instances per-thread, keyed by their instantiation arguments. Ensure that manual lifecycle methods (like `.close()`) are removed from the task execution path to preserve the cached instances across tasks.
+
+## 2025-02-18 - [Optimization] Connection Pooling for Sequential API Calls
+**Learning:** Using `requests.post()` directly or recreating a `requests.Session()` within local scopes (like parallel threads or loops) forces Python to open a new TCP connection and perform a new TLS handshake for every single request, adding hundreds of milliseconds of latency per request. Creating a global `requests.Session()` object at the module level allows connection pooling across threads and sequential API calls, significantly speeding up multiple requests to the same host without handshake overhead.
+**Action:** Whenever a module makes multiple sequential or threaded API requests to the same external service, instantiate a global `requests.Session()` to enable connection pooling and eliminate repeated TLS handshake latency.
