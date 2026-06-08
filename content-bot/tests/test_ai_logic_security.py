@@ -37,6 +37,7 @@ class TestAILogicSecurity(unittest.TestCase):
         ai_logic.analyze_content_for_clips(transcription, video_info)
 
         # Verify timeout argument
+        self.assertTrue(mock_post.called, 'mock_post was not called')
         args, kwargs = mock_post.call_args
         self.assertIn('timeout', kwargs, "requests.post should be called with a timeout")
         self.assertGreater(kwargs['timeout'], 0, "Timeout should be positive")
@@ -62,6 +63,7 @@ class TestAILogicSecurity(unittest.TestCase):
         ai_logic.generate_clip_caption(clip_info, transcript_segment)
 
         # Verify timeout argument
+        self.assertTrue(mock_post.called, 'mock_post was not called')
         args, kwargs = mock_post.call_args
         self.assertIn('timeout', kwargs, "requests.post should be called with a timeout")
         self.assertGreater(kwargs['timeout'], 0, "Timeout should be positive")
@@ -76,6 +78,7 @@ class TestAILogicSecurity(unittest.TestCase):
         mock_response = MagicMock()
         mock_response.status_code = 401
         mock_response.text = 'Error: Invalid API key: fake_test_key. Access denied.'
+        mock_response.json.return_value = {}
         mock_post.return_value = mock_response
 
         # Dummy input
@@ -104,6 +107,7 @@ class TestAILogicSecurity(unittest.TestCase):
         mock_response = MagicMock()
         mock_response.status_code = 401
         mock_response.text = 'Error: Token fake_test_key%3Awith%2Fspecial%2Fchars is invalid in redirect.'
+        mock_response.json.return_value = {}
         mock_post.return_value = mock_response
 
         # Dummy input
@@ -118,6 +122,36 @@ class TestAILogicSecurity(unittest.TestCase):
         error_msg = str(context.exception)
         self.assertNotIn(encoded_key, error_msg)
         self.assertNotIn('fake_test_key:with/special/chars', error_msg)
+        self.assertTrue('[REDACTED]' in error_msg or 'MagicMock' in error_msg)
+
+    @patch('utils.ai_logic.CHUTES_API_KEY', 'fake' + '_test_' + 'key')
+    @patch('utils.ai_logic.requests.post')
+    def test_analyze_content_for_clips_redacts_base64_encoded_api_key(self, mock_post):
+        """
+        Test that analyze_content_for_clips redacts base64-encoded API keys.
+        """
+        import base64
+        encoded_key = base64.b64encode('fake_test_key'.encode('utf-8')).decode('utf-8')
+
+        # Setup mock response simulating an API error that leaks the base64-encoded key
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        mock_response.text = f'Error: Token {encoded_key} is invalid.'
+        mock_response.json.return_value = {}
+        mock_post.return_value = mock_response
+
+        # Dummy input
+        transcription = {"text": "dummy text"}
+        video_info = {"duration": 100, "title": "Test Video"}
+
+        # Call function and expect Exception
+        with self.assertRaises(Exception) as context:
+            ai_logic.analyze_content_for_clips(transcription, video_info)
+
+        # Verify the base64-encoded key is redacted
+        error_msg = str(context.exception)
+        self.assertNotIn(encoded_key, error_msg)
+        self.assertNotIn('fake_test_key', error_msg)
         self.assertTrue('[REDACTED]' in error_msg or 'MagicMock' in error_msg)
 
 if __name__ == '__main__':
