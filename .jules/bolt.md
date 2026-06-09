@@ -53,3 +53,6 @@
 ## 2025-02-18 - [Optimization] Cache Heavy ML Models in Thread Pool Environments
 **Learning:** When initializing heavy, non-thread-safe ML models (like MediaPipe Face Detection) inside a parallel execution context (e.g., `ThreadPoolExecutor`), creating a new model instance for every task causes severe CPU overhead and memory thrashing. However, storing a single global instance leads to thread safety issues.
 **Action:** Use `threading.local()` to cache and reuse model instances per-thread, keyed by their instantiation arguments. Ensure that manual lifecycle methods (like `.close()`) are removed from the task execution path to preserve the cached instances across tasks.
+## 2025-02-18 - [Optimization] Module-Level Mocking with Global Objects
+**Learning:** If a module initializes a global object from an imported dependency (e.g., `_api_session = requests.Session()`), mocking the entire dependency via `sys.modules['requests'] = MagicMock()` before importing the module causes the global object to become a mock instance during import. This breaks subsequent test mocks targeting that global object.
+**Action:** When converting a module to use a global connection pool, ensure you remove broad `sys.modules` mocks and instead precisely target the new module-level attribute with `@patch` (e.g., `@patch('utils.ai_logic._api_session.post')`).
