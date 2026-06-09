@@ -31,6 +31,15 @@ def _sanitize_error_msg(msg: str) -> str:
         url_encoded_key = urllib.parse.quote(CHUTES_API_KEY, safe='')
         if url_encoded_key in msg:
             msg = msg.replace(url_encoded_key, "[REDACTED]")
+
+        # Redact base64 encoded API key as external services may reflect it in headers or responses
+        import base64
+        try:
+            b64_encoded_key = base64.b64encode(CHUTES_API_KEY.encode('utf-8')).decode('utf-8')
+            if b64_encoded_key in msg:
+                msg = msg.replace(b64_encoded_key, "[REDACTED]")
+        except Exception:
+            pass
     return msg
 
 
