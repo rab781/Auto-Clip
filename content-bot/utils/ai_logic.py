@@ -13,6 +13,7 @@ import sys
 import time
 import functools
 import concurrent.futures
+import base64
 sys.path.append(str(__file__).rsplit('\\', 2)[0])
 
 from config import CHUTES_API_KEY, CHUTES_BASE_URL, WHISPER_MODEL, LLM_MODEL, VIDEO_SETTINGS
@@ -31,6 +32,9 @@ def _sanitize_error_msg(msg: str) -> str:
         url_encoded_key = urllib.parse.quote(CHUTES_API_KEY, safe='')
         if url_encoded_key in msg:
             msg = msg.replace(url_encoded_key, "[REDACTED]")
+        b64_encoded_key = base64.b64encode(CHUTES_API_KEY.encode()).decode()
+        if b64_encoded_key in msg:
+            msg = msg.replace(b64_encoded_key, "[REDACTED]")
     return msg
 
 

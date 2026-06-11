@@ -1,3 +1,8 @@
+## 2026-02-12 - Base64-Encoded Credential Leakage in External API Errors
+**Vulnerability:** External APIs can sometimes reflect sensitive credentials back in their error messages. We were previously checking for raw and URL-encoded variations of our API keys in error messages, but not base64-encoded strings, allowing potential credential leakage when third-party services echo decoded keys.
+**Learning:** Hardcoded text replacement (`msg.replace(key, "[REDACTED]")`) is insufficient for credential masking because systems often transform text (e.g., URL-encoding, base64, hex encoding) before processing or reflecting it in error logs/messages.
+**Prevention:** When sanitizing logs or error messages for secrets, explicitly encode the secret using common transformations (like `urllib.parse.quote` and `base64.b64encode`) and redact those encoded strings in addition to the raw plaintext values.
+
 ## 2026-02-12 - SSRF via yt-dlp
 **Vulnerability:** yt-dlp can access internal network services (SSRF) via generic HTTP extractor. The application accepted any URL, exposing internal services to potential attackers.
 **Learning:** CLI tools like yt-dlp are powerful and can be used for SSRF if input is not validated.
