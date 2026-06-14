@@ -12,6 +12,7 @@ sys.modules['yt_dlp.utils'] = MagicMock()
 sys.modules['requests'] = MagicMock()
 sys.modules['dotenv'] = MagicMock()
 
+import base64
 from utils import ai_logic
 
 class TestAILogicSecurity(unittest.TestCase):
@@ -120,5 +121,32 @@ class TestAILogicSecurity(unittest.TestCase):
         self.assertNotIn('fake_test_key:with/special/chars', error_msg)
         self.assertTrue('[REDACTED]' in error_msg or 'MagicMock' in error_msg)
 
+
+    @patch('utils.ai_logic.CHUTES_API_KEY', 'fake_test_key_for_b64')
+    @patch('utils.ai_logic.requests.post')
+    def test_analyze_content_for_clips_redacts_base64_api_key(self, mock_post):
+        """
+        Test that analyze_content_for_clips redacts base64-encoded API keys.
+        """
+        key = 'fake_test_key_for_b64'
+        b64_key = base64.b64encode(key.encode()).decode('utf-8')
+
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        mock_response.text = f'Error: Token {b64_key} is invalid in header.'
+        mock_post.return_value = mock_response
+
+        transcription = {"text": "dummy text"}
+        video_info = {"duration": 100, "title": "Test Video"}
+
+        with self.assertRaises(Exception) as context:
+            ai_logic.analyze_content_for_clips(transcription, video_info)
+
+        error_msg = str(context.exception)
+        self.assertNotIn(b64_key, error_msg)
+        self.assertNotIn(key, error_msg)
+        self.assertTrue('[REDACTED]' in error_msg or 'MagicMock' in error_msg)
+
 if __name__ == '__main__':
+
     unittest.main()
