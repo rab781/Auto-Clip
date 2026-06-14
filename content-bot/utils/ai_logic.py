@@ -17,6 +17,12 @@ sys.path.append(str(__file__).rsplit('\\', 2)[0])
 
 from config import CHUTES_API_KEY, CHUTES_BASE_URL, WHISPER_MODEL, LLM_MODEL, VIDEO_SETTINGS
 
+# ⚡ Bolt Optimization: Global API Connection Pool
+# Impact: Reuses the underlying TCP connection/TLS session across multiple requests globally,
+# eliminating handshake overhead and significantly speeding up repeated API calls across the application.
+# Measurement: Compare end-to-end processing time for a video with vs without global session.
+_api_session = requests.Session()
+
 
 import urllib.parse
 
@@ -163,46 +169,45 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
     max_workers = min(3, num_chunks)
     print(f"   ⚡ Parallel processing with {max_workers} threads...")
 
-    # Use a session for connection pooling across threads
-    with requests.Session() as session:
-        def process_chunk_task(task_args):
-            """Helper to process a single chunk in a thread."""
-            idx, start_ts, end_ts = task_args
-            # ⚡ Bolt Optimization: Use the original audio's file extension for chunks
-            # so that _extract_audio_chunk can stream-copy instead of transcoding.
-            ext = Path(audio_path).suffix
-            chunk_file = temp_dir / f"chunk_{idx:03d}{ext}"
-            label = f"Chunk {idx+1}/{num_chunks}"
+    # ⚡ Bolt Optimization: Use global connection pool
+    def process_chunk_task(task_args):
+        """Helper to process a single chunk in a thread."""
+        idx, start_ts, end_ts = task_args
+        # ⚡ Bolt Optimization: Use the original audio's file extension for chunks
+        # so that _extract_audio_chunk can stream-copy instead of transcoding.
+        ext = Path(audio_path).suffix
+        chunk_file = temp_dir / f"chunk_{idx:03d}{ext}"
+        label = f"Chunk {idx+1}/{num_chunks}"
 
+        try:
+            print(f"\n   📍 Processing {label} [{start_ts:.0f}s - {end_ts:.0f}s]...")
+
+            # Extract chunk using ffmpeg
+            _extract_audio_chunk(audio_path, str(chunk_file), start_ts, end_ts)
+
+            # Transcribe chunk
+            # Note: _transcribe_chunk internally does retries
+            res = _transcribe_chunk(str(chunk_file), start_ts, max_retries, chunk_label=label, session=_api_session)
+
+            # Clean up chunk file
+            chunk_file.unlink(missing_ok=True)
+            return (idx, start_ts, res)
+
+        except Exception as err:
+            print(f"   ⚠️ {label} failed: {err}")
+            chunk_file.unlink(missing_ok=True)
+            return (idx, start_ts, None)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_chunk = {executor.submit(process_chunk_task, t): t for t in tasks}
+
+        for future in concurrent.futures.as_completed(future_to_chunk):
             try:
-                print(f"\n   📍 Processing {label} [{start_ts:.0f}s - {end_ts:.0f}s]...")
-
-                # Extract chunk using ffmpeg
-                _extract_audio_chunk(audio_path, str(chunk_file), start_ts, end_ts)
-
-                # Transcribe chunk
-                # Note: _transcribe_chunk internally does retries
-                res = _transcribe_chunk(str(chunk_file), start_ts, max_retries, chunk_label=label, session=session)
-
-                # Clean up chunk file
-                chunk_file.unlink(missing_ok=True)
-                return (idx, start_ts, res)
-
-            except Exception as err:
-                print(f"   ⚠️ {label} failed: {err}")
-                chunk_file.unlink(missing_ok=True)
-                return (idx, start_ts, None)
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_chunk = {executor.submit(process_chunk_task, t): t for t in tasks}
-
-            for future in concurrent.futures.as_completed(future_to_chunk):
-                try:
-                    idx, start_ts, res = future.result()
-                    if res:
-                        results.append((idx, start_ts, res))
-                except Exception as exc:
-                    print(f"   ❌ task generated an exception: {exc}")
+                idx, start_ts, res = future.result()
+                if res:
+                    results.append((idx, start_ts, res))
+            except Exception as exc:
+                print(f"   ❌ task generated an exception: {exc}")
 
     # Sort results by index to maintain order
     results.sort(key=lambda x: x[0])
@@ -319,7 +324,7 @@ def _transcribe_chunk(audio_path: str, time_offset: float, max_retries: int = 3,
     timeout = max(180, int(file_size_mb * 30) + 60)
     
     prefix = f"      [{chunk_label}]" if chunk_label else "      "
-    requester = session if session else requests
+    requester = session if session else _api_session
 
     for attempt in range(max_retries):
         try:
@@ -401,29 +406,25 @@ def translate_segments(segments: list, target_lang: str = "Indonesian") -> list:
     
     print(f"[TRANS] Translating {len(segments)} segments to {target_lang} ({total_batches} batches)...")
     
-    # ⚡ Bolt Optimization: Use a Session for connection pooling when making sequential API calls
-    # Impact: Reuses the underlying TCP connection/TLS session across multiple requests,
-    # eliminating handshake overhead and significantly speeding up batch translation.
-    # Measurement: Compare translation time for a video with 5+ batches with vs without session.
-    with requests.Session() as session:
-        for batch_idx in range(0, len(segments), batch_size):
-            batch = segments[batch_idx:batch_idx + batch_size]
-            batch_num = (batch_idx // batch_size) + 1
+    # ⚡ Bolt Optimization: Utilize global _api_session for connection pooling
+    for batch_idx in range(0, len(segments), batch_size):
+        batch = segments[batch_idx:batch_idx + batch_size]
+        batch_num = (batch_idx // batch_size) + 1
 
-            # Build numbered text for batch translation
-            numbered_texts = []
-            for i, seg in enumerate(batch):
-                text = seg["text"].strip()
-                if text:
-                    numbered_texts.append(f"{i+1}. {text}")
+        # Build numbered text for batch translation
+        numbered_texts = []
+        for i, seg in enumerate(batch):
+            text = seg["text"].strip()
+            if text:
+                numbered_texts.append(f"{i+1}. {text}")
 
-            if not numbered_texts:
-                translated.extend(batch)
-                continue
+        if not numbered_texts:
+            translated.extend(batch)
+            continue
 
-            batch_text = "\n".join(numbered_texts)
+        batch_text = "\n".join(numbered_texts)
 
-            prompt = f"""Terjemahkan SEMUA kalimat berikut ke Bahasa Indonesia.
+        prompt = f"""Terjemahkan SEMUA kalimat berikut ke Bahasa Indonesia.
 PENTING: 
 - Pertahankan nomor urut di awal setiap baris
 - Terjemahkan dengan natural, bukan kaku
@@ -431,60 +432,60 @@ PENTING:
 - JANGAN tambahkan penjelasan apapun
 
 {batch_text}"""
-            
-            data = {
-                "model": LLM_MODEL,
-                "messages": [
-                    {"role": "system", "content": "Kamu adalah penerjemah profesional. Tugasmu HANYA menerjemahkan teks yang diberikan ke Bahasa Indonesia. Output HANYA terjemahan dengan nomor urut, tanpa penjelasan."},
-                    {"role": "user", "content": prompt}
-                ],
-                "temperature": 0.3,
-                "max_tokens": 1500,
-            }
 
-            try:
-                print(f"   [NOTE] Batch {batch_num}/{total_batches}...")
-                response = session.post(
-                    f"{CHUTES_BASE_URL}/chat/completions",
-                    headers=headers,
-                    json=data,
-                    timeout=60
-                )
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    translated_text = result["choices"][0]["message"]["content"].strip()
+        data = {
+            "model": LLM_MODEL,
+            "messages": [
+                {"role": "system", "content": "Kamu adalah penerjemah profesional. Tugasmu HANYA menerjemahkan teks yang diberikan ke Bahasa Indonesia. Output HANYA terjemahan dengan nomor urut, tanpa penjelasan."},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.3,
+            "max_tokens": 1500,
+        }
 
-                    # Parse numbered translations back
-                    translations = {}
-                    for line in translated_text.split("\n"):
-                        line = line.strip()
-                        if not line:
-                            continue
-                        # Match "1. translated text" format
-                        match = re.match(r'^(\d+)\.\s*(.+)$', line)
-                        if match:
-                            idx = int(match.group(1)) - 1
-                            translations[idx] = match.group(2).strip()
+        try:
+            print(f"   [NOTE] Batch {batch_num}/{total_batches}...")
+            response = _api_session.post(
+                f"{CHUTES_BASE_URL}/chat/completions",
+                headers=headers,
+                json=data,
+                timeout=60
+            )
 
-                    # Apply translations to batch
-                    for i, seg in enumerate(batch):
-                        new_seg = seg.copy()
-                        if i in translations:
-                            new_seg["text"] = translations[i]
-                        translated.append(new_seg)
+            if response.status_code == 200:
+                result = response.json()
+                translated_text = result["choices"][0]["message"]["content"].strip()
 
-                    translated_count = len(translations)
-                    print(f"      [OK] {translated_count}/{len(batch)} segments translated")
-                else:
-                    safe_err = _sanitize_error_msg(response.text)[:100]
-                    print(f"      [WARN] Translation API error ({response.status_code}): {safe_err}, using original text")
-                    translated.extend(batch)
+                # Parse numbered translations back
+                translations = {}
+                for line in translated_text.split("\n"):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    # Match "1. translated text" format
+                    match = re.match(r'^(\d+)\.\s*(.+)$', line)
+                    if match:
+                        idx = int(match.group(1)) - 1
+                        translations[idx] = match.group(2).strip()
 
-            except Exception as e:
-                safe_err = _sanitize_error_msg(str(e))[:80]
-                print(f"      [ERROR] Translation error: {safe_err}, using original text")
+                # Apply translations to batch
+                for i, seg in enumerate(batch):
+                    new_seg = seg.copy()
+                    if i in translations:
+                        new_seg["text"] = translations[i]
+                    translated.append(new_seg)
+
+                translated_count = len(translations)
+                print(f"      [OK] {translated_count}/{len(batch)} segments translated")
+            else:
+                safe_err = _sanitize_error_msg(response.text)[:100]
+                print(f"      [WARN] Translation API error ({response.status_code}): {safe_err}, using original text")
                 translated.extend(batch)
+
+        except Exception as e:
+            safe_err = _sanitize_error_msg(str(e))[:80]
+            print(f"      [ERROR] Translation error: {safe_err}, using original text")
+            translated.extend(batch)
     
     print(f"[OK] Translation complete: {len(translated)} segments")
     return translated
@@ -591,7 +592,7 @@ HANYA OUTPUT JSON, tanpa penjelasan tambahan."""
     }
     
     print("[AI] Analyzing content for viral clips...")
-    response = requests.post(
+    response = _api_session.post(
         f"{CHUTES_BASE_URL}/chat/completions",
         headers=headers,
         json=data,
@@ -679,7 +680,7 @@ OUTPUT langsung caption-nya saja, tanpa label atau penjelasan."""
         "max_tokens": 150,
     }
     
-    response = requests.post(
+    response = _api_session.post(
         f"{CHUTES_BASE_URL}/chat/completions",
         headers=headers,
         json=data,
