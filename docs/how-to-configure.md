@@ -1,16 +1,16 @@
 # How-to: Configure the Bot
 
-This guide walks you through configuring Auto-Clip Bot V2 settings, such as styling your subtitles and limiting download limits, so you customize the generated clips to your brand.
+After completing this guide, you will have configured Auto-Clip Bot V2 settings, such as styling your subtitles and limiting download sizes, to match your brand.
 
 ## Step 1: Open the Configuration File
 
-You configure the bot by editing the `content-bot/config.py` file. Open this file in your text editor.
+You configure the bot by editing the `content-bot/config.py` file. You open this file in your text editor.
 
 ## Step 2: Configure Caption Settings
 
-To change the styling of your subtitles, modify the `CAPTION_SETTINGS` dictionary.
+To change the styling of your subtitles, you modify the `CAPTION_SETTINGS` dictionary.
 
-You can select between `animated` or `simple` styles, change the `font`, or update the `highlight_color`.
+You select between `animated` or `simple` styles, you change the `font`, or you update the `highlight_color`.
 For brevity, the example below only shows a few commonly customized keys; refer to `content-bot/config.py` for the full set of supported caption options (font size, colors, outline/shadow, positioning, etc.).
 
 ```python
@@ -41,7 +41,7 @@ VIDEO_SETTINGS = {
 
 ## Step 4: Verify Your Configuration
 
-You verify your configuration by performing a dry run before processing long videos. Run the following command:
+You verify your configuration by performing a dry run before processing long videos. You run the following command:
 
 ```bash
 python content-bot/main.py --url https://youtu.be/dQw4w9WgXcQ --dry-run

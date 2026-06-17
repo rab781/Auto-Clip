@@ -16,7 +16,7 @@
 
 ## Step 1: Set Up Your Project
 
-First, clone the repository and set up your Python environment. You use a separate virtual environment to isolate the project's dependencies from your main system.
+First, you clone the repository and set up your Python environment. You use a separate virtual environment to isolate the project's dependencies from your main system.
 
 ```bash
 git clone https://github.com/yourusername/auto-clip-bot.git
@@ -27,28 +27,28 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 You see `(venv)` at the beginning of your terminal prompt.
 
-> **Tip**: If you see `Error: ENOENT` or path-related errors, ensure you are running these commands from the correct directory.
+> **Tip**: If you see `Error: ENOENT` or path-related errors, ensure you run these commands from the correct directory.
 
 ## Step 2: Install Dependencies and Configure Credentials
 
-Install the required Python packages and configure your Chutes API key. The bot uses Chutes for both transcription (Whisper) and narrative analysis (DeepSeek-V3).
+You install the required Python packages and configure your Chutes API key. The bot uses Chutes for both transcription (Whisper) and narrative analysis (DeepSeek-V3).
 
 ```bash
 pip install -r content-bot/requirements.txt
 cp .env.example .env
 ```
 
-Open the `.env` file in your text editor and replace the placeholder with your actual Chutes API key:
+You open the `.env` file in your text editor and replace the placeholder with your actual Chutes API key:
 
 ```env
 CHUTES_API_KEY=your_actual_api_key_here
 ```
 
-> **Tip**: If you see FFmpeg errors later, ensure you can run `ffmpeg -version` in your terminal. If the command fails, FFmpeg is not in your system PATH.
+> **Tip**: If you see FFmpeg errors later, you ensure you can run `ffmpeg -version` in your terminal. If the command fails, FFmpeg is not in your system PATH.
 
 ## Step 3: Run a Dry Run (Analysis Only)
 
-Before downloading large video files, analyze the video to see what the AI recommends. A dry run fetches the transcript, identifies narrative arcs, and prints potential clips without processing them. This saves time and bandwidth while tweaking selection parameters.
+Before downloading large video files, you analyze the video to see what the AI recommends. A dry run fetches the transcript, identifies narrative arcs, and prints potential clips without processing them. This saves time and bandwidth while tweaking selection parameters.
 
 ```bash
 python content-bot/main.py https://www.youtube.com/watch?v=dQw4w9WgXcQ --dry-run
@@ -68,7 +68,7 @@ You see output similar to this:
 
 ## Step 4: Generate Your Clip
 
-Now, remove the `--dry-run` flag to actually download, crop, caption, and render the video.
+Now, you remove the `--dry-run` flag to actually download, crop, caption, and render the video.
 
 ```bash
 python content-bot/main.py https://www.youtube.com/watch?v=dQw4w9WgXcQ
@@ -91,7 +91,7 @@ Here is what you learned:
 - **Dry Runs**: How to preview AI selections to save time and bandwidth.
 - **Automated Processing**: How the bot combines FFmpeg and LLM logic to output vertical media.
 
-Check the `content-bot/assets/output/` directory for your final `.mp4` files, thumbnails, and generated social media captions.
+You check the `content-bot/assets/output/` directory for your final `.mp4` files, thumbnails, and generated social media captions.
 
 ## Next Steps
 
