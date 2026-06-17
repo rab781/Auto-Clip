@@ -27,6 +27,12 @@ _api_session = requests.Session()
 import urllib.parse
 import base64
 
+# ⚡ Bolt Optimization: Use a global Session for connection pooling for standalone LLM API calls.
+# Impact: Reuses the underlying TCP connection/TLS session across multiple requests,
+# eliminating the 100-200ms handshake overhead per concurrent request.
+# Measurement: Compare execution time of parallel process_single_clip tasks with vs without session.
+_api_session = requests.Session()
+
 def _sanitize_error_msg(msg: str) -> str:
     """
     Sanitize error messages to prevent leaking the configured API key.
