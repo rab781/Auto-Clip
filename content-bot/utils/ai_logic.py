@@ -27,6 +27,12 @@ _api_session = requests.Session()
 import urllib.parse
 import base64
 
+# ⚡ Bolt Optimization: Global module-level Session for API calls.
+# Impact: Reuses TCP connections and TLS sessions across multiple concurrent LLM API requests,
+# eliminating the 100-200ms handshake overhead per request.
+# Measurement: Compare end-to-end processing time for a video with multiple clips with and without a session.
+_api_session = requests.Session()
+
 def _sanitize_error_msg(msg: str) -> str:
     """
     Sanitize error messages to prevent leaking the configured API key.
