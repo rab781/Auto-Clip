@@ -13,6 +13,12 @@ import sys
 import time
 import functools
 import concurrent.futures
+
+# ⚡ Bolt Optimization: Implement module-level requests.Session for connection pooling.
+# Impact: Reuses the underlying TCP/TLS connection across multiple API calls,
+# eliminating handshake latency and substantially speeding up batch requests to Chutes API.
+_api_session = requests.Session()
+
 sys.path.append(str(__file__).rsplit('\\', 2)[0])
 
 from config import CHUTES_API_KEY, CHUTES_BASE_URL, WHISPER_MODEL, LLM_MODEL, VIDEO_SETTINGS
