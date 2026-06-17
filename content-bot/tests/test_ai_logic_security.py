@@ -39,7 +39,7 @@ class TestAILogicSecurity(unittest.TestCase):
 
         # Verify timeout argument
         args, kwargs = mock_post.call_args
-        self.assertIn('timeout', kwargs, "requests.post should be called with a timeout")
+        self.assertIn('timeout', kwargs, "_api_session.post should be called with a timeout")
         self.assertGreater(kwargs['timeout'], 0, "Timeout should be positive")
 
     @patch('utils.ai_logic._api_session.post')
@@ -64,7 +64,7 @@ class TestAILogicSecurity(unittest.TestCase):
 
         # Verify timeout argument
         args, kwargs = mock_post.call_args
-        self.assertIn('timeout', kwargs, "requests.post should be called with a timeout")
+        self.assertIn('timeout', kwargs, "_api_session.post should be called with a timeout")
         self.assertGreater(kwargs['timeout'], 0, "Timeout should be positive")
 
     @patch('utils.ai_logic.CHUTES_API_KEY', 'fake' + '_test_' + 'key')
