@@ -27,6 +27,11 @@ _api_session = requests.Session()
 import urllib.parse
 import base64
 
+# ⚡ Bolt Optimization: Global connection pooling
+# Impact: Reuses TCP connections/TLS sessions across all API calls, significantly
+# speeding up sequential and concurrent requests (like generate_clip_caption).
+_api_session = requests.Session()
+
 def _sanitize_error_msg(msg: str) -> str:
     """
     Sanitize error messages to prevent leaking the configured API key.
