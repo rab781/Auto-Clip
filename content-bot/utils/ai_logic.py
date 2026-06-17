@@ -27,6 +27,8 @@ _api_session = requests.Session()
 import urllib.parse
 import base64
 
+_api_session = requests.Session()
+
 def _sanitize_error_msg(msg: str) -> str:
     """
     Sanitize error messages to prevent leaking the configured API key.

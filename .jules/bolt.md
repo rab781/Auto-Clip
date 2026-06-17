@@ -1,3 +1,7 @@
+
+## 2024-05-23 - [Optimization] Connection Pooling for ThreadPool Executions
+**Learning:** Using `requests.post()` inside thread pool executions (e.g., when parallelizing API calls like generating multiple clip captions concurrently) creates a new TCP connection and performs a new TLS handshake for each thread. While a locally scoped `requests.Session()` is great for sequential batches, creating a module-level global `_api_session = requests.Session()` allows connection pooling across all concurrent threads, eliminating the 100-200ms handshake overhead per concurrent request.
+**Action:** When handling concurrent tasks that call the same external API, implement a global, module-level `requests.Session()` for connection pooling and replace standalone `requests.post()` calls with `_api_session.post()`. Ensure test suites are updated to patch the new module-level session attribute.
 ## 2025-02-18 - [Optimization] Skip Decoding in Video Loop
 **Learning:** In video processing loops where only a subset of frames (e.g., 1 in 10) are analyzed, using `cap.read()` decodes every single frame, causing significant CPU overhead. Replacing `cap.read()` with `cap.grab()` (which only reads the frame data without full decoding) for skipped frames, and using `cap.retrieve()` only for frames to be processed, results in measurable performance gains (e.g., ~27% speedup even on simple test video).
 **Action:** Always check `cv2.VideoCapture` loops for unnecessary decoding. If frames are skipped based on index or time, use `cap.grab()` and `continue` instead of `cap.read()`.
