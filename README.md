@@ -84,15 +84,16 @@ Show detailed stack traces for troubleshooting if you encounter an issue.
 python content-bot/main.py https://youtu.be/dQw4w9WgXcQ --debug
 ```
 
-## API Reference
+## CLI Reference
 
-See [full Configuration reference →](docs/reference-configuration.md)
+See [full CLI reference →](docs/reference-cli.md)
 
 ## Documentation
 
 - [Tutorial: Your First Viral Clip](docs/tutorial-first-clip.md)
 - [How-To: Configure the Bot](docs/how-to-configure.md)
 - [Reference: Configuration Options](docs/reference-configuration.md)
+- [Reference: CLI Options](docs/reference-cli.md)
 - [Explanation: Architecture Overview](docs/explanation-architecture.md)
 
 ## Contributing
