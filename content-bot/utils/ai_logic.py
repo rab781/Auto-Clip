@@ -164,7 +164,11 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
     temp_dir.mkdir(mode=0o700, exist_ok=True)
     
     all_segments = []
-    full_text = ""
+
+    # ⚡ Bolt Optimization: Replace O(N^2) string += with O(N) list accumulation and ''.join()
+    # Impact: Significantly reduces memory reallocation and copies during transcript construction
+    # Measurement: Benchmark transcription of 1h+ videos to see string manipulation time drops
+    full_text_parts = []
     
     # Prepare tasks
     tasks = []
@@ -230,7 +234,9 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
                 seg["end"] += start_ts
                 all_segments.append(seg)
 
-        full_text += " " + result.get("text", "")
+        text_part = result.get("text", "").strip()
+        if text_part:
+            full_text_parts.append(text_part)
     
     # Clean up temp directory
     try:
@@ -238,10 +244,11 @@ def transcribe_audio(audio_path: str, max_retries: int = 3, chunk_duration: int 
     except:
         pass
     
+    full_text = " ".join(full_text_parts)
     print(f"\n[OK] Transcription complete: {len(full_text)} characters, {len(all_segments)} segments")
     
     return {
-        "text": full_text.strip(),
+        "text": full_text,
         "segments": all_segments
     }
 
