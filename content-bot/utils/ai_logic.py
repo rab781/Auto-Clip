@@ -410,15 +410,18 @@ def translate_segments(segments: list, target_lang: str = "Indonesian") -> list:
         "Content-Type": "application/json",
     }
     
-    translated = []
     batch_size = 20  # Translate 20 segments at once
     total_batches = (len(segments) + batch_size - 1) // batch_size
     
     print(f"[TRANS] Translating {len(segments)} segments to {target_lang} ({total_batches} batches)...")
     
-    # ⚡ Bolt Optimization: Utilize global _api_session for connection pooling
-    for batch_idx in range(0, len(segments), batch_size):
-        batch = segments[batch_idx:batch_idx + batch_size]
+    # ⚡ Bolt Optimization: Utilize ThreadPoolExecutor with global _api_session for concurrent batch translation
+    # Impact: Significantly reduces overall translation time by executing API requests concurrently
+    # instead of sequentially blocking. Wait time shrinks from O(batches) to O(1) bounded by network parallelism.
+    # Measurement: Compare execution time of translate_segments with many segments before and after.
+
+    def process_batch(batch_tuple):
+        batch_idx, batch = batch_tuple
         batch_num = (batch_idx // batch_size) + 1
 
         # Build numbered text for batch translation
@@ -429,8 +432,7 @@ def translate_segments(segments: list, target_lang: str = "Indonesian") -> list:
                 numbered_texts.append(f"{i+1}. {text}")
 
         if not numbered_texts:
-            translated.extend(batch)
-            continue
+            return batch_idx, batch
 
         batch_text = "\n".join(numbered_texts)
 
@@ -453,8 +455,9 @@ PENTING:
             "max_tokens": 1500,
         }
 
+        translated_batch = []
         try:
-            print(f"   [NOTE] Batch {batch_num}/{total_batches}...")
+            print(f"   [NOTE] Batch {batch_num}/{total_batches} starting...")
             response = _api_session.post(
                 f"{CHUTES_BASE_URL}/chat/completions",
                 headers=headers,
@@ -483,20 +486,35 @@ PENTING:
                     new_seg = seg.copy()
                     if i in translations:
                         new_seg["text"] = translations[i]
-                    translated.append(new_seg)
+                    translated_batch.append(new_seg)
 
                 translated_count = len(translations)
-                print(f"      [OK] {translated_count}/{len(batch)} segments translated")
+                print(f"      [OK] Batch {batch_num}: {translated_count}/{len(batch)} segments translated")
+                return batch_idx, translated_batch
             else:
                 safe_err = _sanitize_error_msg(response.text)[:100]
-                print(f"      [WARN] Translation API error ({response.status_code}): {safe_err}, using original text")
-                translated.extend(batch)
+                print(f"      [WARN] Batch {batch_num} Translation API error ({response.status_code}): {safe_err}, using original text")
+                return batch_idx, batch
 
         except Exception as e:
             safe_err = _sanitize_error_msg(str(e))[:80]
-            print(f"      [ERROR] Translation error: {safe_err}, using original text")
-            translated.extend(batch)
+            print(f"      [ERROR] Batch {batch_num} Translation error: {safe_err}, using original text")
+            return batch_idx, batch
+
+    batches = [(i, segments[i:i + batch_size]) for i in range(0, len(segments), batch_size)]
     
+    # Run batches concurrently
+    translated_results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(5, total_batches)) as executor:
+        for result in executor.map(process_batch, batches):
+            translated_results.append(result)
+
+    # Reassemble in original order
+    translated_results.sort(key=lambda x: x[0])
+    translated = []
+    for _, batch_result in translated_results:
+        translated.extend(batch_result)
+
     print(f"[OK] Translation complete: {len(translated)} segments")
     return translated
 

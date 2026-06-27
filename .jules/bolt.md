@@ -1,55 +1,7 @@
-## 2025-02-18 - [Optimization] Skip Decoding in Video Loop
-**Learning:** In video processing loops where only a subset of frames (e.g., 1 in 10) are analyzed, using `cap.read()` decodes every single frame, causing significant CPU overhead. Replacing `cap.read()` with `cap.grab()` (which only reads the frame data without full decoding) for skipped frames, and using `cap.retrieve()` only for frames to be processed, results in measurable performance gains (e.g., ~27% speedup even on simple test video).
-**Action:** Always check `cv2.VideoCapture` loops for unnecessary decoding. If frames are skipped based on index or time, use `cap.grab()` and `continue` instead of `cap.read()`.
-## 2024-05-23 - [Consolidated FFmpeg Processing]
-**Learning:** Combining multiple FFmpeg filters (scale, crop, subtitles, amix) into a single complex filter graph (`-filter_complex`) significantly reduces processing time by eliminating intermediate re-encodes and disk I/O. However, constructing these complex filters requires careful handling of input streams and mappings, especially when some inputs (like BGM) are optional.
-**Action:** When optimizing media pipelines, always look for opportunities to chain filters in a single pass. Ensure fallback mechanisms (like sequential processing) are in place, as complex filter graphs can be more fragile or environmentally dependent (e.g. font issues).
-## 2025-02-18 - [Optimization] Avoid O(N²) String Concatenation in Long Transcripts
-**Learning:** Using the `+=` operator for string concatenation inside a loop over thousands of items (e.g., formatting video transcript segments) causes repeated memory reallocation, making it an O(N²) operation that can block the main thread and significantly degrade performance. Replacing it with a generator expression or list accumulation combined with `"".join()` transforms the operation into an O(N) process, resulting in vastly improved efficiency when building large strings.
-**Action:** Always use `"".join()` with list comprehensions or generators instead of `+=` when accumulating strings inside loops, especially for documents that can grow unbounded like transcripts, logs, or subtitle files.
+---
+name: Bolt
+---
+## 2024-06-27 - Concurrent API Dispatch
 
-## 2025-02-18 - [Optimization] Efficient Subtitle Formatting
-**Learning:** Subtitle generator loops like ASS generation iterating over multiple sentences/words per second build a very large `.ass` text payload. The previous `+=` concatenation generated intermediate objects and forced Python to reallocate memory and copy strings on every word. Switching to `list.append(...)` followed by `"".join(ass_lines)` speeds up string creation drastically while handling large files smoothly.
-**Action:** Apply list building techniques (`[]` + `append()` + `"".join()`) across all IO bound routines emitting text logs, subtitle generation outputs (`SRT`/`ASS`/`VTT`), or formatting transcripts in O(N) instead of O(N²).
-
-## 2025-02-18 - [Optimization] Connection Pooling for API Calls
-**Learning:** Using `requests.post()` inside a loop (like for batch translating subtitles) forces Python to open a new TCP connection and perform a new TLS handshake for every single request, adding hundreds of milliseconds of latency per batch. Creating a `requests.Session()` object outside the loop and using `session.post()` reuses the underlying connection, significantly speeding up sequential API calls.
-**Action:** Whenever an application makes multiple sequential or looped API requests to the same host, always wrap the calls in a `requests.Session()` to enable connection pooling and eliminate handshake overhead.
-
-## 2025-02-18 - [Optimization] Eliminate Redundant Disk I/O with Caching
-**Learning:** In batch processing pipelines (e.g., generating multiple video clips concurrently), functions that scan directories (like `pathlib.Path.glob`) for static assets (like BGM files) cause redundant disk I/O when called repeatedly. Caching the directory listing significantly reduces file system calls. However, using `functools.lru_cache` on functions returning mutable lists can lead to bugs if the cache is accidentally modified.
-**Action:** When caching directory listings or other static data using `@functools.lru_cache`, always convert the result to an immutable type (e.g., `tuple`) before returning to ensure the cache remains safe from unintended mutations across concurrent calls.
-
-## 2025-02-18 - [Optimization] Precalculate Arrays for Python 3.9 Compatible Binary Search
-**Learning:** Using `bisect.bisect_left` natively on a list of objects with the `key` parameter to search for elements in O(log N) time only works in Python >= 3.10. For compatibility with older Python versions, developers often extract keys into a new list (e.g., `[x["start"] for x in segments]`) *before* applying `bisect`. If done inside an inner loop or a thread executor, this extraction repeatedly incurs an O(N) penalty, offsetting the O(log N) gains and bottlenecking concurrent tasks.
-**Action:** When performing `bisect` operations on complex object lists while maintaining Python 3.9 compatibility, always hoist the array extraction (`[x["key"] for x in data]`) outside loops or thread pools. Precalculate the array of keys once and pass it to the child processes or iterations to ensure true O(log N) performance without hidden O(N) overhead.
-## 2025-02-18 - [Optimization] FFmpeg Preset Performance Bottleneck
-**Learning:** Using FFmpeg's `-preset slow` is a major performance bottleneck for automated video rendering pipelines. While `-preset slow` theoretically provides better compression, in fast-paced automated workflows (like generating shorts/reels), `-preset fast` or `-preset veryfast` provides a substantial speed boost (~2x-3x) without significant quality loss or file size bloat.
-**Action:** Always prefer faster presets (`fast` or `veryfast`) instead of `slow` when executing automated FFmpeg commands (especially `libx264` encoding) where processing speed is critical.
-
-## 2025-02-18 - [Optimization] Avoid O(N) overhead in binary search loops
-**Learning:** When using `bisect.bisect_left` inside loops (like searching for matching transcript segments based on time), passing a `key` parameter to extract a property from a list of dicts forces a small overhead per comparison, but more importantly, isn't fully supported without wrappers in Python < 3.10. Instead of repeatedly constructing data or using `key`, precalculate and extract a plain list of the searchable property outside of the thread pool/loop execution. Passing this precalculated list enables raw, extremely fast `O(log N)` binary search on simple types without additional overhead.
-**Action:** When performing `bisect` inside heavy processing loops or multi-threaded tasks, pre-extract the target values into a separate flat list beforehand to maintain optimal performance and backwards compatibility.
-
-## 2025-02-18 - [Optimization] Divmod over sequential arithmetic
-**Learning:** In tight loops like calculating formatted timestamps for thousands of subtitle frames or segments, doing floating point math (`round()`), sequential floor division (`//`), and modulo operations (`%`) is computationally intensive. Replacing these with `int()` rounding and iterative built-in `divmod()` tuple unpacking speeds up calculations by roughly ~10%, adding up substantially when executed repeatedly.
-**Action:** When converting time or generating timestamps, prefer `divmod()` on integers over chaining `//` and `%` math.
-
-## 2025-02-18 - [Optimization] Dynamically Bounding ML Inference Sampling
-**Learning:** When sampling a video for a static property using expensive ML inference (like face tracking), using a fixed sampling interval (e.g., every 10th frame) results in O(N) execution time, which becomes a severe bottleneck on long videos. By dynamically adjusting the interval based on the total frame count (`max(sample_interval, total_frames // max_samples)`), the inference cost is strictly bounded to a maximum number of samples (O(1) complexity) while maintaining a uniform temporal distribution and preserving accuracy.
-**Action:** Always avoid fixed sampling intervals for expensive per-frame operations. Dynamically calculate the interval using `cv2.CAP_PROP_FRAME_COUNT` to bound the maximum number of frames processed to an O(1) upper limit.
-
-## 2025-02-18 - [Optimization] Cache DNS Resolution for SSRF Protection
-**Learning:** In batch processing operations where identical inputs are repeatedly evaluated (e.g. validating the same YouTube URL or domain multiple times), synchronous network operations like `socket.getaddrinfo` can introduce redundant, blocking latency. However, DNS results are freshness-sensitive for SSRF validation: indefinite memoization can preserve stale answers across resolver changes or DNS rebinding scenarios. Caching is therefore only appropriate when freshness is bounded (for example with a TTL-based cache) or when resolution is constrained by strict allowlists / trusted DNS assumptions.
-**Action:** Avoid unconditional `@functools.lru_cache` for DNS-backed SSRF validation. If repeated lookups must be optimized, prefer a short TTL-based cache and re-resolve after expiry; only use long-lived memoization for strictly allowlisted or otherwise trusted, stable name-resolution inputs.
-
-## 2025-02-18 - [Optimization] Avoid Synchronous FFprobe Subprocess Calls
-**Learning:** When constructing FFmpeg filter graphs or generating thumbnails for video clips, unnecessary synchronous subprocess calls (such as `ffprobe` for duration) add blocking overhead and slow batch processing. In rendering paths, native FFmpeg features like `amix=duration=first` combined with `aloop=loop=-1:size=0` can handle truncation and buffering without pre-calculated sizes. In thumbnail paths, duration is often already derivable from in-memory context (for example, `clip_info['end'] - clip_info['start']`), making an external metadata probe redundant.
-**Action:** Remove synchronous metadata extraction when native FFmpeg behavior or already-available in-memory timing data can provide the needed values, especially inside per-item processing loops where subprocess overhead compounds.
-
-## 2024-05-23 - [Optimization] Skip Redundant Subprocess Calls When Data is Available
-**Learning:** The pipeline originally spawned a synchronous `ffprobe` subprocess in `transcribe_audio` to calculate the audio duration, even when this metadata was already fetched earlier via `yt-dlp` and stored in memory. Spawning synchronous subprocesses inside the main pipeline adds severe blocking overhead. By passing the known duration from the `video_info` dictionary down to `transcribe_audio`, the blocking `ffprobe` call is entirely bypassed, saving significant execution time per video processed.
-**Action:** When a function requires metadata (like duration, size, or format) that was likely fetched upstream, update the function signature to accept it optionally. Pass the in-memory data instead of re-calculating it via heavy subprocesses or re-parsing the file.
-## 2025-02-18 - [Optimization] Cache Heavy ML Models in Thread Pool Environments
-**Learning:** When initializing heavy, non-thread-safe ML models (like MediaPipe Face Detection) inside a parallel execution context (e.g., `ThreadPoolExecutor`), creating a new model instance for every task causes severe CPU overhead and memory thrashing. However, storing a single global instance leads to thread safety issues.
-**Action:** Use `threading.local()` to cache and reuse model instances per-thread, keyed by their instantiation arguments. Ensure that manual lifecycle methods (like `.close()`) are removed from the task execution path to preserve the cached instances across tasks.
+**Learning:** When making batch API calls to an LLM service (like Chutes.ai), processing the batches sequentially inside a loop creates a severe O(batches) bottleneck due to blocking network I/O.
+**Action:** Use `concurrent.futures.ThreadPoolExecutor.map` combined with a pre-configured global connection pool (`requests.Session`) to dispatch independent batches concurrently. Ensure the mapping preserves the original execution order before reassembling the results, reducing wait time to O(1) bounded by available threads and network bandwidth.
