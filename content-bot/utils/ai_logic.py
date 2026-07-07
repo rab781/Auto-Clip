@@ -727,26 +727,35 @@ def _parse_clips_json(content: str) -> list:
     except json.JSONDecodeError:
         pass
     
+    # ⚡ Bolt Optimization: Use native string methods for JSON extraction
+    # Impact: Replaces O(N^2) greedy regex searching with O(N) native C string methods.
+    # Prevents catastrophic backtracking on large LLM responses and speeds up parsing significantly.
+    # Measurement: Benchmark extraction time on a 100KB string payload.
+
     # Try to extract JSON array from response
-    json_match = re.search(r'\[[\s\S]*\]', content)
-    if json_match:
-        try:
-            data = json.loads(json_match.group())
-            if isinstance(data, list):
-                return data
-        except json.JSONDecodeError:
-            pass
+    start_arr = content.find('[')
+    if start_arr != -1:
+        end_arr = content.rfind(']')
+        if end_arr != -1 and end_arr >= start_arr:
+            try:
+                data = json.loads(content[start_arr:end_arr+1])
+                if isinstance(data, list):
+                    return data
+            except json.JSONDecodeError:
+                pass
 
     # Try to extract JSON object from response
-    obj_match = re.search(r'\{[\s\S]*\}', content)
-    if obj_match:
-        try:
-            data = json.loads(obj_match.group())
-            extracted = extract_from_data(data)
-            if extracted is not None:
-                return extracted
-        except json.JSONDecodeError:
-            pass
+    start_obj = content.find('{')
+    if start_obj != -1:
+        end_obj = content.rfind('}')
+        if end_obj != -1 and end_obj >= start_obj:
+            try:
+                data = json.loads(content[start_obj:end_obj+1])
+                extracted = extract_from_data(data)
+                if extracted is not None:
+                    return extracted
+            except json.JSONDecodeError:
+                pass
     
     # Fallback: empty list
     print("[WARN] Could not parse clips JSON, returning empty list")
