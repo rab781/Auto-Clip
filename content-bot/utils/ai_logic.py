@@ -727,21 +727,31 @@ def _parse_clips_json(content: str) -> list:
     except json.JSONDecodeError:
         pass
     
+    # ⚡ Bolt Optimization: Replace regex search with native string methods
+    # Impact: Extracting JSON blocks using native string methods `find` and `rfind` executes in C and prevents
+    # catastrophic backtracking (O(N²)) caused by greedy regular expressions like `\[[\s\S]*\]`,
+    # significantly speeding up parsing for large outputs.
+    # Measurement: Benchmark extraction time on a very large (e.g., 50KB) text output containing JSON blocks.
+
     # Try to extract JSON array from response
-    json_match = re.search(r'\[[\s\S]*\]', content)
-    if json_match:
+    start_idx = content.find('[')
+    end_idx = content.rfind(']')
+    if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
         try:
-            data = json.loads(json_match.group())
+            json_str = content[start_idx:end_idx + 1]
+            data = json.loads(json_str)
             if isinstance(data, list):
                 return data
         except json.JSONDecodeError:
             pass
 
     # Try to extract JSON object from response
-    obj_match = re.search(r'\{[\s\S]*\}', content)
-    if obj_match:
+    start_idx = content.find('{')
+    end_idx = content.rfind('}')
+    if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
         try:
-            data = json.loads(obj_match.group())
+            obj_str = content[start_idx:end_idx + 1]
+            data = json.loads(obj_str)
             extracted = extract_from_data(data)
             if extracted is not None:
                 return extracted
