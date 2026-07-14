@@ -727,21 +727,28 @@ def _parse_clips_json(content: str) -> list:
     except json.JSONDecodeError:
         pass
     
+    # ⚡ Bolt Optimization: Use native string methods instead of greedy regex
+    # Impact: Significantly speeds up parsing of large LLM outputs by preventing
+    # catastrophic backtracking (O(N^2) complexity) inherent in greedy regex matches.
+    # Measurement: Benchmark regex vs native find/rfind on large text inputs.
+
     # Try to extract JSON array from response
-    json_match = re.search(r'\[[\s\S]*\]', content)
-    if json_match:
+    start_idx = content.find('[')
+    end_idx = content.rfind(']')
+    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
         try:
-            data = json.loads(json_match.group())
+            data = json.loads(content[start_idx:end_idx+1])
             if isinstance(data, list):
                 return data
         except json.JSONDecodeError:
             pass
 
     # Try to extract JSON object from response
-    obj_match = re.search(r'\{[\s\S]*\}', content)
-    if obj_match:
+    start_idx = content.find('{')
+    end_idx = content.rfind('}')
+    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
         try:
-            data = json.loads(obj_match.group())
+            data = json.loads(content[start_idx:end_idx+1])
             extracted = extract_from_data(data)
             if extracted is not None:
                 return extracted
