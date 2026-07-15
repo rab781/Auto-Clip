@@ -728,20 +728,24 @@ def _parse_clips_json(content: str) -> list:
         pass
     
     # Try to extract JSON array from response
-    json_match = re.search(r'\[[\s\S]*\]', content)
-    if json_match:
+    # ⚡ Bolt Optimization: Use native string methods for JSON extraction
+    # Impact: Prevents catastrophic backtracking and reduces parsing overhead
+    list_start = content.find('[')
+    list_end = content.rfind(']')
+    if list_start != -1 and list_end != -1 and list_end > list_start:
         try:
-            data = json.loads(json_match.group())
+            data = json.loads(content[list_start:list_end+1])
             if isinstance(data, list):
                 return data
         except json.JSONDecodeError:
             pass
 
     # Try to extract JSON object from response
-    obj_match = re.search(r'\{[\s\S]*\}', content)
-    if obj_match:
+    obj_start = content.find('{')
+    obj_end = content.rfind('}')
+    if obj_start != -1 and obj_end != -1 and obj_end > obj_start:
         try:
-            data = json.loads(obj_match.group())
+            data = json.loads(content[obj_start:obj_end+1])
             extracted = extract_from_data(data)
             if extracted is not None:
                 return extracted
