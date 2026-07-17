@@ -1,3 +1,8 @@
+## 2026-05-24 - API Key Leakage via URL-Encoded Error Messages
+**Vulnerability:** The application correctly sanitized raw API keys (`CHUTES_API_KEY`) from error messages using a basic string replacement operation. However, it failed to account for scenarios where external APIs echo the credential in a URL-encoded format within their error payload (e.g., during failed redirects or URL validations). This discrepancy bypassed the redaction logic, leading to the exposure of the URL-encoded API key in local logs.
+**Learning:** Basic string replacement for secret redaction is insufficient when dealing with external network interfaces. Credentials can be transformed (specifically, URL-encoded or base64 encoded) during transit. If the error response reflects this transformed state, it will bypass raw string matching.
+**Prevention:** When implementing dynamic secret redaction (`_sanitize_error_msg`), always consider common encodings. Specifically, encode the credential (using `urllib.parse.quote`) and redact the encoded variation using a case-insensitive regular expression (`re.sub` with `re.IGNORECASE`) in addition to the raw secret.
+
 ## 2026-02-12 - SSRF via yt-dlp
 **Vulnerability:** yt-dlp can access internal network services (SSRF) via generic HTTP extractor. The application accepted any URL, exposing internal services to potential attackers.
 **Learning:** CLI tools like yt-dlp are powerful and can be used for SSRF if input is not validated.
