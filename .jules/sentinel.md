@@ -79,3 +79,8 @@
 **Vulnerability:** The application properly sanitized plaintext and URL-encoded API keys from error messages, but failed to account for Base64 encoding. If an external API or service logs/reflects the authorization token (e.g., from an Authorization header) in Base64 format during an error state, the credential would bypass existing redaction filters and leak into local logs or stack traces.
 **Learning:** Credentials can be transmitted or reflected in multiple formats depending on the transport layer (e.g., Basic Auth headers often use Base64). Securing error logs requires anticipating common encodings of secrets.
 **Prevention:** Extend dynamic secret redaction functions (`_sanitize_error_msg`) to encode the configured secret in Base64 (using `base64.b64encode`) and redact this encoded string from error payloads in addition to plaintext and URL-encoded variations.
+
+## 2026-02-13 - API Key Leakage via Case-Sensitive URL Encoding Redaction
+**Vulnerability:** The error message sanitizer used a case-sensitive plain string replacement to redact URL-encoded API keys. External APIs often reflect URL-encoded payload errors using different hex character casing (e.g., `%3a` instead of `%3A`), allowing the key to bypass redaction and leak in logs or responses.
+**Learning:** When sanitizing data that has been encoded (like URL percent-encoding), relying solely on plain string replacement is insufficient due to case variations in encoding algorithms across different services.
+**Prevention:** Use regular expressions with case-insensitive flags (`re.IGNORECASE`) to match and redact all variations of URL-encoded secrets.
