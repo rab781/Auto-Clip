@@ -75,6 +75,11 @@
 **Learning:** Basic string replacement for secret redaction is insufficient when dealing with external network interfaces. Credentials can be transformed (specifically, URL-encoded or base64 encoded) during transit. If the error response reflects this transformed state, it will bypass raw string matching.
 **Prevention:** When implementing dynamic secret redaction (`_sanitize_error_msg`), always consider common encodings. Specifically, encode the credential (using `urllib.parse.quote`) and redact the encoded variation in addition to the raw secret.
 
+## 2026-07-20 - API Key Leakage via Case-Insensitive URL-Encoded Error Messages
+**Vulnerability:** The application properly sanitized URL-encoded API keys from error messages using a basic string replacement operation. However, it failed to account for scenarios where external APIs echo the credential in a URL-encoded format with lowercase hex digits (e.g., `%3a` instead of `%3A`). This discrepancy bypassed the redaction logic, leading to the exposure of the URL-encoded API key in local logs.
+**Learning:** Basic string replacement for secret redaction is insufficient when dealing with URL-encoded strings, because the hex digits can be represented in either uppercase or lowercase.
+**Prevention:** When implementing dynamic secret redaction for URL-encoded strings, always use a case-insensitive regular expression replacement (e.g., `re.sub(..., flags=re.IGNORECASE)`) instead of a simple string replacement.
+
 ## 2026-06-15 - API Key Leakage via Base64-Encoded Error Messages
 **Vulnerability:** The application properly sanitized plaintext and URL-encoded API keys from error messages, but failed to account for Base64 encoding. If an external API or service logs/reflects the authorization token (e.g., from an Authorization header) in Base64 format during an error state, the credential would bypass existing redaction filters and leak into local logs or stack traces.
 **Learning:** Credentials can be transmitted or reflected in multiple formats depending on the transport layer (e.g., Basic Auth headers often use Base64). Securing error logs requires anticipating common encodings of secrets.

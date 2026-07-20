@@ -122,6 +122,37 @@ class TestAILogicSecurity(unittest.TestCase):
         self.assertTrue('[REDACTED]' in error_msg or 'MagicMock' in error_msg)
 
 
+    @patch('utils.ai_logic.CHUTES_API_KEY', 'fake' + '_test_' + 'key:with/special/chars')
+    @patch('utils.ai_logic._api_session.post')
+    def test_analyze_content_for_clips_redacts_url_encoded_api_key_case_insensitive(self, mock_post):
+        """
+        Test that analyze_content_for_clips redacts URL-encoded API keys even if hex digits are lowercase.
+        """
+        import urllib.parse
+        encoded_key = urllib.parse.quote('fake_test_key:with/special/chars', safe='')
+        lower_encoded_key = encoded_key.lower()
+
+        # Setup mock response simulating an API error that leaks the url-encoded key in lowercase
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        mock_response.text = f'Error: Token {lower_encoded_key} is invalid in redirect.'
+        mock_post.return_value = mock_response
+
+        # Dummy input
+        transcription = {"text": "dummy text"}
+        video_info = {"duration": 100, "title": "Test Video"}
+
+        # Call function and expect Exception
+        with self.assertRaises(Exception) as context:
+            ai_logic.analyze_content_for_clips(transcription, video_info)
+
+        # Verify the url-encoded key is redacted
+        error_msg = str(context.exception)
+        self.assertNotIn(lower_encoded_key, error_msg)
+        self.assertNotIn('fake_test_key:with/special/chars', error_msg)
+        self.assertTrue('[REDACTED]' in error_msg or 'MagicMock' in error_msg)
+
+
     @patch('utils.ai_logic.CHUTES_API_KEY', 'fake_test_key_for_b64')
     @patch('utils.ai_logic.requests.post')
     def test_analyze_content_for_clips_redacts_base64_api_key(self, mock_post):
