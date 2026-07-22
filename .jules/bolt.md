@@ -1,4 +1,7 @@
 ## 2025-02-18 - [Optimization] Skip Decoding in Video Loop
+## 2025-02-18 - [Optimization] Avoid O(N²) String Regex Matching
+**Learning:** Using greedy regular expressions (e.g., `re.search(r'\[[\s\S]*\]', content)`) to parse large LLM responses for JSON blocks causes catastrophic backtracking (O(N²)), significantly slowing down text extraction. Replacing regex with native Python string methods like `.find()` and `.rfind()` converts the search to a highly optimized O(N) operation written in C, handling large text payloads much faster without backtracking risks.
+**Action:** When extracting JSON or specific blocks from large dynamic text outputs, avoid greedy regex patterns. Prefer native string methods (`find`, `rfind`, `split`) which execute faster and avoid catastrophic backtracking.
 **Learning:** In video processing loops where only a subset of frames (e.g., 1 in 10) are analyzed, using `cap.read()` decodes every single frame, causing significant CPU overhead. Replacing `cap.read()` with `cap.grab()` (which only reads the frame data without full decoding) for skipped frames, and using `cap.retrieve()` only for frames to be processed, results in measurable performance gains (e.g., ~27% speedup even on simple test video).
 **Action:** Always check `cv2.VideoCapture` loops for unnecessary decoding. If frames are skipped based on index or time, use `cap.grab()` and `continue` instead of `cap.read()`.
 ## 2024-05-23 - [Consolidated FFmpeg Processing]
