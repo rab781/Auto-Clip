@@ -104,7 +104,8 @@ class TestAILogicSecurity(unittest.TestCase):
         # Setup mock response simulating an API error that leaks the url-encoded key
         mock_response = MagicMock()
         mock_response.status_code = 401
-        mock_response.text = 'Error: Token fake_test_key%3Awith%2Fspecial%2Fchars is invalid in redirect.'
+        # Use lowercase hex encoding to ensure case-insensitive redaction works
+        mock_response.text = 'Error: Token fake_test_key%3awith%2fspecial%2fchars is invalid in redirect.'
         mock_post.return_value = mock_response
 
         # Dummy input
