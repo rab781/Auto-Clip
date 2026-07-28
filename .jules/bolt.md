@@ -1,3 +1,7 @@
+## 2025-02-18 - [Optimization] Native String Methods over Regex for JSON Extraction
+**Learning:** When extracting JSON blocks from large LLM text responses, using greedy regular expressions (e.g., `re.search(r'\[[\s\S]*\]', content)`) causes catastrophic backtracking (O(N²)) in the Python regex engine. For large responses, this can take tens of milliseconds or more, blocking the main thread. Using native Python string methods (`content.find('[')` and `content.rfind(']')`) executes in C and completes almost instantly (O(N) or better), significantly speeding up parsing.
+**Action:** Always use native string methods like `find()` and `rfind()` instead of greedy regex when parsing large text outputs to extract structured data boundaries.
+
 ## 2025-02-18 - [Optimization] Skip Decoding in Video Loop
 **Learning:** In video processing loops where only a subset of frames (e.g., 1 in 10) are analyzed, using `cap.read()` decodes every single frame, causing significant CPU overhead. Replacing `cap.read()` with `cap.grab()` (which only reads the frame data without full decoding) for skipped frames, and using `cap.retrieve()` only for frames to be processed, results in measurable performance gains (e.g., ~27% speedup even on simple test video).
 **Action:** Always check `cv2.VideoCapture` loops for unnecessary decoding. If frames are skipped based on index or time, use `cap.grab()` and `continue` instead of `cap.read()`.
