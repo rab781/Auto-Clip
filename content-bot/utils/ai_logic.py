@@ -728,25 +728,29 @@ def _parse_clips_json(content: str) -> list:
         pass
     
     # Try to extract JSON array from response
-    json_match = re.search(r'\[[\s\S]*\]', content)
-    if json_match:
-        try:
-            data = json.loads(json_match.group())
-            if isinstance(data, list):
-                return data
-        except json.JSONDecodeError:
-            pass
+    start_idx = content.find('[')
+    if start_idx != -1:
+        end_idx = content.rfind(']')
+        if end_idx != -1 and end_idx > start_idx:
+            try:
+                data = json.loads(content[start_idx:end_idx+1])
+                if isinstance(data, list):
+                    return data
+            except json.JSONDecodeError:
+                pass
 
     # Try to extract JSON object from response
-    obj_match = re.search(r'\{[\s\S]*\}', content)
-    if obj_match:
-        try:
-            data = json.loads(obj_match.group())
-            extracted = extract_from_data(data)
-            if extracted is not None:
-                return extracted
-        except json.JSONDecodeError:
-            pass
+    start_idx = content.find('{')
+    if start_idx != -1:
+        end_idx = content.rfind('}')
+        if end_idx != -1 and end_idx > start_idx:
+            try:
+                data = json.loads(content[start_idx:end_idx+1])
+                extracted = extract_from_data(data)
+                if extracted is not None:
+                    return extracted
+            except json.JSONDecodeError:
+                pass
     
     # Fallback: empty list
     print("[WARN] Could not parse clips JSON, returning empty list")
