@@ -1,3 +1,8 @@
+## 2026-07-31 - Case-Sensitive URL-Encoded API Key Leakage
+**Vulnerability:** The application attempted to redact URL-encoded API keys from error messages but used a strict, case-sensitive string matching (`str.replace()`). If an external API returned the URL-encoded key with different casing for the hex digits (e.g., `%3a` instead of `%3A`), the redaction was bypassed and the credential leaked into the logs.
+**Learning:** URL-encoding is often handled inconsistently by different systems regarding the casing of hexadecimal characters. Basic string replacement for secret redaction fails to account for these variations.
+**Prevention:** Always use case-insensitive regular expressions (e.g., `re.sub(..., flags=re.IGNORECASE)`) when attempting to redact URL-encoded credentials from untrusted error payloads.
+
 ## 2026-02-12 - SSRF via yt-dlp
 **Vulnerability:** yt-dlp can access internal network services (SSRF) via generic HTTP extractor. The application accepted any URL, exposing internal services to potential attackers.
 **Learning:** CLI tools like yt-dlp are powerful and can be used for SSRF if input is not validated.
