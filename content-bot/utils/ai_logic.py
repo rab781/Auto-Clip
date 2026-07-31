@@ -728,20 +728,25 @@ def _parse_clips_json(content: str) -> list:
         pass
     
     # Try to extract JSON array from response
-    json_match = re.search(r'\[[\s\S]*\]', content)
-    if json_match:
+    # ⚡ Bolt Optimization: Use native string methods instead of greedy regex
+    # Impact: Significantly faster O(N) extraction for large LLM responses, avoiding regex backtracking.
+    # Measurement: Run unit tests to verify correctness and see parsing speedup on large text.
+    start_arr = content.find('[')
+    end_arr = content.rfind(']')
+    if start_arr != -1 and end_arr != -1 and end_arr > start_arr:
         try:
-            data = json.loads(json_match.group())
+            data = json.loads(content[start_arr:end_arr+1])
             if isinstance(data, list):
                 return data
         except json.JSONDecodeError:
             pass
 
     # Try to extract JSON object from response
-    obj_match = re.search(r'\{[\s\S]*\}', content)
-    if obj_match:
+    start_obj = content.find('{')
+    end_obj = content.rfind('}')
+    if start_obj != -1 and end_obj != -1 and end_obj > start_obj:
         try:
-            data = json.loads(obj_match.group())
+            data = json.loads(content[start_obj:end_obj+1])
             extracted = extract_from_data(data)
             if extracted is not None:
                 return extracted
