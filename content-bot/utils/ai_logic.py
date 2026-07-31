@@ -37,8 +37,9 @@ def _sanitize_error_msg(msg: str) -> str:
         if key_str in msg:
             msg = msg.replace(key_str, "[REDACTED]")
         url_encoded_key = urllib.parse.quote(key_str, safe='')
-        if url_encoded_key in msg:
-            msg = msg.replace(url_encoded_key, "[REDACTED]")
+        # Use case-insensitive regex for URL-encoded keys (e.g. %3a vs %3A)
+        escaped_url_key = re.escape(url_encoded_key)
+        msg = re.sub(escaped_url_key, "[REDACTED]", msg, flags=re.IGNORECASE)
 
         try:
             b64_key = base64.b64encode(key_str.encode('utf-8')).decode('utf-8')

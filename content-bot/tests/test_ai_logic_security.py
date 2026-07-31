@@ -147,6 +147,36 @@ class TestAILogicSecurity(unittest.TestCase):
         self.assertNotIn(key, error_msg)
         self.assertTrue('[REDACTED]' in error_msg or 'MagicMock' in error_msg)
 
-if __name__ == '__main__':
+    @patch('utils.ai_logic.CHUTES_API_KEY', 'fake' + '_test_' + 'key:with/special/chars')
+    @patch('utils.ai_logic._api_session.post')
+    def test_analyze_content_for_clips_redacts_url_encoded_api_key_case_insensitive(self, mock_post):
+        """
+        Test that analyze_content_for_clips redacts URL-encoded API keys even if casing is different.
+        """
+        import urllib.parse
+        encoded_key = urllib.parse.quote('fake_test_key:with/special/chars', safe='')
 
+        # Simulate different casing (e.g. %3a vs %3A)
+        differently_cased_key = encoded_key.lower() if encoded_key.isupper() else encoded_key.lower()
+
+        # Setup mock response
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        mock_response.text = f'Error: Token {differently_cased_key} is invalid.'
+        mock_post.return_value = mock_response
+
+        # Dummy input
+        transcription = {"text": "dummy text"}
+        video_info = {"duration": 100, "title": "Test Video"}
+
+        with self.assertRaises(Exception) as context:
+            ai_logic.analyze_content_for_clips(transcription, video_info)
+
+        error_msg = str(context.exception)
+        self.assertNotIn(differently_cased_key, error_msg)
+        self.assertNotIn('fake_test_key:with/special/chars', error_msg)
+        self.assertTrue('[REDACTED]' in error_msg)
+
+
+if __name__ == '__main__':
     unittest.main()
