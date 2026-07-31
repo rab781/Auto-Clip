@@ -53,3 +53,7 @@
 ## 2025-02-18 - [Optimization] Cache Heavy ML Models in Thread Pool Environments
 **Learning:** When initializing heavy, non-thread-safe ML models (like MediaPipe Face Detection) inside a parallel execution context (e.g., `ThreadPoolExecutor`), creating a new model instance for every task causes severe CPU overhead and memory thrashing. However, storing a single global instance leads to thread safety issues.
 **Action:** Use `threading.local()` to cache and reuse model instances per-thread, keyed by their instantiation arguments. Ensure that manual lifecycle methods (like `.close()`) are removed from the task execution path to preserve the cached instances across tasks.
+
+## 2025-02-18 - [Optimization] Fast JSON Block Extraction via Native String Methods
+**Learning:** When extracting JSON blocks from large LLM text responses, using greedy regular expressions like `re.search(r'\[[\s\S]*\]', content)` can cause catastrophic backtracking (O(N²)) in the Python `re` engine, leading to severe performance bottlenecks or timeouts on large texts. Native Python string methods like `content.find('[')` and `content.rfind(']')` run in highly optimized C loops and extract the blocks in O(N) time with practically zero overhead.
+**Action:** When extracting large JSON structures embedded within raw text (like LLM outputs), avoid greedy regular expressions. Always use native string methods (`find()` / `rfind()`) to parse block boundaries safely and efficiently.
